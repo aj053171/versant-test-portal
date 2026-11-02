@@ -11,6 +11,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .audio-wave {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .audio-wave span {
+            display: block;
+            width: 3px;
+            height: 10px;
+            background-color: #ef4444;
+            border-radius: 3px;
+            animation: wave 1s ease-in-out infinite;
+        }
+        .audio-wave span:nth-child(2) { animation-delay: 0.1s; }
+        .audio-wave span:nth-child(3) { animation-delay: 0.2s; }
+        .audio-wave span:nth-child(4) { animation-delay: 0.3s; }
+        @keyframes wave {
+            0%, 100% { height: 10px; }
+            50% { height: 24px; }
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen py-10 px-4 sm:px-6">
@@ -19,10 +39,8 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // 4-line reading assessment passage
         const READING_PASSAGE = "Welcome to the customer support line. Our technical team is available twenty-four hours a day to diagnose and resolve your internet issues.\nPlease check that the main power adapter is tightly connected to your wireless modem.\nVerify that the network signal light remains solid green and is not blinking red or amber.\nIf the connection drops repeatedly, restart the hardware and wait two minutes before calling back.";
 
-        // Complete question bank for random allocation
         const MASTER_QUESTION_POOL = [
             { q: "Which is faster: a bicycle or a jet plane?", answers: ["jet plane", "plane", "jet", "aeroplane"] },
             { q: "Should you use a hammer or a key to open a locked wooden door?", answers: ["key"] },
@@ -34,7 +52,7 @@
             { q: "What is the opposite of the word 'heavy'?", answers: ["light"] },
             { q: "If you are not awake, what are you?", answers: ["asleep", "sleeping", "sleep"] },
             { q: "Is your father's sister your aunt or your uncle?", answers: ["aunt", "aunty"] },
-            { q: "What do we call a person who treats sick animals?", answers: ["vet", "veterinarian", "veterinary doctor"] },
+            { q: "What do we call a person who treats sick animals?", answers: ["vet", "veterinarian", "veterinary"] },
             { q: "If today is Tuesday, what day was yesterday?", answers: ["monday"] },
             { q: "Is a newborn human baby called an adult or an infant?", answers: ["infant", "baby"] },
             { q: "How many months are there in a single year?", answers: ["12", "twelve"] },
@@ -46,7 +64,6 @@
             { q: "What part of a tree grows underground: the leaves or the roots?", answers: ["roots", "root"] }
         ];
 
-        // Fisher-Yates shuffle algorithm to guarantee true random picking
         function getRandomQuestions(pool, count = 5) {
             const arr = [...pool];
             for (let i = arr.length - 1; i > 0; i--) {
@@ -61,11 +78,9 @@
             const [agentId, setAgentId] = useState("");
             const [step, setStep] = useState(0); 
 
-            // Selected questions for this specific agent
             const [assignedQuestions, setAssignedQuestions] = useState([]);
             const [currentQIndex, setCurrentQIndex] = useState(0);
 
-            // Audio & speech state
             const [isRecording, setIsRecording] = useState(false);
             const [readingTranscript, setReadingTranscript] = useState("");
             const [readingAudioURL, setReadingAudioURL] = useState(null);
@@ -74,7 +89,6 @@
             const [qaAudioURLs, setQaAudioURLs] = useState([]);
             const [hasRecordedCurrent, setHasRecordedCurrent] = useState(false);
 
-            // Final evaluation result
             const [result, setResult] = useState(null);
             const [isEvaluating, setIsEvaluating] = useState(false);
 
@@ -82,7 +96,6 @@
             const audioChunks = useRef([]);
             const recognition = useRef(null);
 
-            // Setup speech recognition
             useEffect(() => {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (SpeechRecognition) {
@@ -110,14 +123,12 @@
                 }
             }, [step, currentQIndex]);
 
-            // Start test: assign completely randomized questions to this agent
             const handleStartTest = () => {
                 if (!agentName.trim()) {
                     alert("Kripya candidate ka naam enter karein.");
                     return;
                 }
-                const randomFive = getRandomQuestions(MASTER_QUESTION_POOL, 5);
-                setAssignedQuestions(randomFive);
+                setAssignedQuestions(getRandomQuestions(MASTER_QUESTION_POOL, 5));
                 setQaTranscripts(new Array(5).fill(""));
                 setQaAudioURLs(new Array(5).fill(null));
                 setCurrentQIndex(0);
@@ -157,7 +168,7 @@
                     }
                     setIsRecording(true);
                 } catch (err) {
-                    alert("Microphone permission required! Kripya mic access allow karein.");
+                    alert("Microphone permission denied! Kripya browser me microphone allow karein.");
                 }
             };
 
@@ -172,29 +183,47 @@
                 setHasRecordedCurrent(true);
             };
 
-            // Evaluate locally without external API key
             const calculateEvaluation = () => {
                 setIsEvaluating(true);
                 setTimeout(() => {
-                    // 1. Reading passage evaluation
-                    const expectedWords = READING_PASSAGE.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+                    // 1. Reading passage analysis & missed words calculation
+                    const expectedWordsRaw = READING_PASSAGE.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean);
                     const spokenWords = readingTranscript.toLowerCase().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean);
-                    
+                    const spokenWordSet = new Set(spokenWords);
+
                     let matchedCount = 0;
-                    expectedWords.forEach(w => {
-                        if (spokenWords.includes(w)) matchedCount++;
+                    const missedWordsList = [];
+
+                    expectedWordsRaw.forEach(word => {
+                        if (spokenWordSet.has(word)) {
+                            matchedCount++;
+                        } else {
+                            if (word.length > 2 && !missedWordsList.includes(word)) {
+                                missedWordsList.push(word);
+                            }
+                        }
                     });
 
-                    const readingAccuracy = expectedWords.length > 0 ? Math.round((matchedCount / expectedWords.length) * 100) : 0;
-                    const pronunciation = Math.min(96, Math.max(35, Math.round(readingAccuracy * 0.85 + 10)));
-                    const fluency = Math.min(95, Math.max(30, Math.round(readingAccuracy * 0.75 + (spokenWords.length > 10 ? 20 : 5))));
+                    const readingAccuracy = expectedWordsRaw.length > 0 ? Math.round((matchedCount / expectedWordsRaw.length) * 100) : 0;
+                    const pronunciation = Math.min(96, Math.max(30, Math.round(readingAccuracy * 0.85 + 10)));
+                    const fluency = Math.min(95, Math.max(25, Math.round(readingAccuracy * 0.75 + (spokenWords.length > 12 ? 20 : 5))));
 
-                    // 2. Questions verification
+                    // 2. Logic questions evaluation & failed question tracking
                     let correctCount = 0;
+                    const failedQuestionsList = [];
                     const breakdown = assignedQuestions.map((item, idx) => {
                         const rawAns = (qaTranscripts[idx] || "").toLowerCase().trim();
                         const isMatch = item.answers.some(ans => rawAns.includes(ans.toLowerCase()));
-                        if (isMatch) correctCount++;
+                        if (isMatch) {
+                            correctCount++;
+                        } else {
+                            failedQuestionsList.push({
+                                qNum: idx + 1,
+                                question: item.q,
+                                agentSaid: rawAns || "No speech detected (Khali tha)",
+                                expected: item.answers.join(" / ")
+                            });
+                        }
                         return {
                             question: item.q,
                             candidateAnswer: rawAns || "(No speech detected)",
@@ -205,7 +234,7 @@
                     });
 
                     const logicScore = Math.round((correctCount / 5) * 100);
-                    const vocabulary = Math.min(98, Math.max(40, Math.round(logicScore * 0.65 + readingAccuracy * 0.35)));
+                    const vocabulary = Math.min(98, Math.max(35, Math.round(logicScore * 0.65 + readingAccuracy * 0.35)));
                     const overallScore = Math.round((pronunciation * 0.3) + (fluency * 0.25) + (logicScore * 0.3) + (vocabulary * 0.15));
 
                     let level = "V1 (Pre-Elementary)";
@@ -215,159 +244,172 @@
                     else if (overallScore >= 55) level = "V3 (Intermediate)";
                     else if (overallScore >= 45) level = "V2 (Basic)";
 
-                    const isPassed = overallScore >= 60 && correctCount >= 3;
-                    const failureReasons = [];
-                    if (!isPassed) {
-                        if (correctCount < 3) failureReasons.push(`Logical questions accuracy low: 5 me se sirf ${correctCount} sawal sahi the.`);
-                        if (readingAccuracy < 55) failureReasons.push(`Reading accuracy kam thi (${readingAccuracy}%). Pronunciation aur clear speech par dhyan dein.`);
-                        if (fluency < 55) failureReasons.push("Speech me pauses aur hesitations zyada detect huye.");
+                    // Passing criteria: Overall >= 60 AND at least 3 logic questions correct AND reading accuracy >= 50%
+                    const isPassed = overallScore >= 60 && correctCount >= 3 && readingAccuracy >= 50;
+                    
+                    // Detailed reasons explaining where the mistake was
+                    const detailedMistakes = [];
+                    if (correctCount < 3) {
+                        detailedMistakes.push({
+                            title: `Logic Questions me Failure (${correctCount}/5 Correct)`,
+                            desc: `Passing benchmark ke liye minimum 3 correct answers chahiye the. Agent ne ${5 - correctCount} sawalon ke galat uttar diye.`
+                        });
+                    }
+                    if (readingAccuracy < 60) {
+                        detailedMistakes.push({
+                            title: `Pronunciation & Reading Missed Words (${readingAccuracy}% Match)`,
+                            desc: `Passage padhte waqt ${missedWordsList.length} important words miss ya galat pronounce huye (jaise: ${missedWordsList.slice(0, 5).join(", ")}...).`
+                        });
+                    }
+                    if (fluency < 55) {
+                        detailedMistakes.push({
+                            title: "Fluency & Speech Rhythm Low",
+                            desc: "Padhte waqt words ke beech lambe pauses, hesitation ya ruk-ruk kar bolna detect hua."
+                        });
+                    }
+                    if (overallScore < 60 && detailedMistakes.length === 0) {
+                        detailedMistakes.push({
+                            title: "Overall Aggregate Benchmark Not Met",
+                            desc: `Total score ${overallScore}/100 raha, jabki passing benchmark minimum 60/100 hai.`
+                        });
                     }
 
                     setResult({
-                        isPassed,
-                        overallScore,
-                        level,
-                        pronunciation,
-                        fluency,
-                        logicScore,
-                        vocabulary,
-                        readingAccuracy,
-                        correctCount,
-                        failureReasons,
-                        breakdown,
+                        isPassed, overallScore, level, pronunciation, fluency, logicScore, vocabulary,
+                        readingAccuracy, correctCount, missedWordsList, failedQuestionsList,
+                        detailedMistakes, breakdown,
                         timestamp: new Date().toLocaleString()
                     });
 
                     setStep(3);
                     setIsEvaluating(false);
-                }, 750);
+                }, 800);
             };
 
             const downloadCSV = () => {
                 const rows = [
-                    ["Candidate Name", agentName],
-                    ["Candidate ID", agentId || "N/A"],
-                    ["Test Date", result.timestamp],
-                    ["Status", result.isPassed ? "PASSED" : "FAILED"],
-                    ["Overall Score", `${result.overallScore} / 100`],
-                    ["Versant Grade", result.level],
-                    ["Pronunciation", `${result.pronunciation}%`],
-                    ["Fluency", `${result.fluency}%`],
-                    ["Logic Score", `${result.logicScore}% (${result.correctCount}/5 Correct)`],
-                    ["Reading Fidelity", `${result.readingAccuracy}%`],
-                    ["Reason Summary", result.isPassed ? "Qualified assessment standards." : result.failureReasons.join(" | ")]
+                    ["Candidate Name", agentName], ["Candidate ID", agentId || "N/A"], ["Test Date", result.timestamp],
+                    ["Status", result.isPassed ? "PASSED" : "FAILED"], ["Total Score", `${result.overallScore}/100`],
+                    ["Versant Grade", result.level], ["Pronunciation", `${result.pronunciation}%`],
+                    ["Fluency", `${result.fluency}%`], ["Logic Questions", `${result.correctCount}/5 Correct`],
+                    ["Reading Match", `${result.readingAccuracy}%`],
+                    ["Failure Details", result.isPassed ? "None" : result.detailedMistakes.map(m => m.title).join(" | ")]
                 ];
-
                 const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
                 const link = document.createElement("a");
                 link.href = encodeURI(csvContent);
-                link.download = `${agentName.replace(/\s+/g, '_')}_Versant_Scorecard.csv`;
+                link.download = `${agentName.replace(/\s+/g, '_')}_Detailed_Report.csv`;
                 document.body.appendChild(link);
                 link.click();
             };
 
+            const renderHighlightedPassage = () => {
+                const tokens = READING_PASSAGE.split(/(\s+)/);
+                const spokenWordsList = readingTranscript.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+
+                return tokens.map((token, idx) => {
+                    if (!token.trim()) return <span key={idx}>{token}</span>;
+                    const cleanToken = token.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const isMatched = spokenWordsList.includes(cleanToken);
+
+                    let classes = "transition-all duration-300 ";
+                    if (isMatched) {
+                        classes += "text-emerald-700 font-bold bg-emerald-50 rounded px-1";
+                    } else if (!isRecording && hasRecordedCurrent) {
+                        classes += "text-rose-600 font-bold underline decoration-rose-400 underline-offset-4 bg-rose-50 rounded px-1";
+                    } else if (isRecording) {
+                        classes += "text-slate-400";
+                    } else {
+                        classes += "text-slate-800";
+                    }
+
+                    return <span key={idx} className={classes}>{token}</span>;
+                });
+            };
+
+            const ProgressBar = ({ label, value, colorClass }) => (
+                <div className="mb-3.5">
+                    <div className="flex justify-between text-xs mb-1.5 font-semibold">
+                        <span className="text-slate-600 uppercase tracking-wide">{label}</span>
+                        <span className="text-slate-800">{value}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200/70 rounded-full h-2.5">
+                        <div className={`h-2.5 rounded-full ${colorClass} transition-all duration-500`} style={{ width: `${value}%` }}></div>
+                    </div>
+                </div>
+            );
+
             return (
                 <div className="max-w-4xl mx-auto">
-                    {/* Header bar */}
+                    {/* Top Bar */}
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 mb-6 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-md shadow-indigo-500/25">V</div>
+                            <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/25">V</div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900 tracking-tight">Versant Spoken & Logic Portal</h1>
-                                <p className="text-xs text-slate-500">Automated Randomized Voice Evaluation Engine</p>
+                                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">AI Versant Diagnostic Portal</h1>
+                                <p className="text-xs font-semibold text-slate-500">Automated Voice & Error Analysis Engine</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            Random Questions Ready
-                        </div>
+                        {isRecording && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-full text-rose-600 text-xs font-bold">
+                                <div className="audio-wave"><span></span><span></span><span></span><span></span></div>
+                                MIC ACTIVE
+                            </div>
+                        )}
                     </div>
 
                     {/* Step 0: Onboarding */}
                     {step === 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 sm:p-10">
-                            <h2 className="text-2xl font-bold text-slate-900 mb-2">New Candidate Assessment</h2>
-                            <p className="text-slate-600 text-sm mb-6">Har agent ko system question pool me se 5 alag sawal randomly assign karega.</p>
-
+                            <h2 className="text-2xl font-bold text-slate-900 mb-2">Candidate Verification</h2>
+                            <p className="text-slate-500 text-sm mb-8 font-medium">Candidate ka naam enter karein. System har candidate ko alag random questions assign karega aur real-time speech evaluation karega.</p>
                             <div className="space-y-4 max-w-md mb-8">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Agent / Candidate Name *</label>
-                                    <input 
-                                        type="text" 
-                                        value={agentName} 
-                                        onChange={(e) => setAgentName(e.target.value)} 
-                                        placeholder="e.g. Ramesh Kumar" 
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none"
-                                    />
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Candidate Full Name *</label>
+                                    <input type="text" value={agentName} onChange={(e) => setAgentName(e.target.value)} placeholder="e.g. Priyanshu Verma" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition font-medium"/>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Agent ID (Optional)</label>
-                                    <input 
-                                        type="text" 
-                                        value={agentId} 
-                                        onChange={(e) => setAgentId(e.target.value)} 
-                                        placeholder="e.g. AGT-1044" 
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none"
-                                    />
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Agent ID (Optional)</label>
+                                    <input type="text" value={agentId} onChange={(e) => setAgentId(e.target.value)} placeholder="e.g. AGT-209" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition font-medium"/>
                                 </div>
                             </div>
-
-                            <button 
-                                onClick={handleStartTest} 
-                                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-600/25"
-                            >
-                                Start Assessment →
-                            </button>
+                            <button onClick={handleStartTest} className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-lg shadow-indigo-600/25">Start Assessment →</button>
                         </div>
                     )}
 
-                    {/* Step 1: 4-Line Reading */}
+                    {/* Step 1: Reading Test with Live Highlighting */}
                     {step === 1 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-                            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
                                 <div>
-                                    <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Part 1 of 2</span>
-                                    <h2 className="text-xl font-bold text-slate-900">4-Line Reading Assessment</h2>
+                                    <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider">Part 1 of 2</span>
+                                    <h2 className="text-2xl font-bold text-slate-900 mt-1">Reading Fluency Assessment</h2>
                                 </div>
-                                <span className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1 rounded-full">Agent: {agentName}</span>
+                                <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Candidate: {agentName}</span>
                             </div>
 
-                            <p className="text-sm text-slate-600 mb-4"><strong>Start Recording</strong> dabayein, niche diye gaye 4 lines ko saaf aawaz me padhein, aur fir <strong>Stop</strong> karein.</p>
-
-                            <div className="bg-indigo-50/40 border-l-4 border-indigo-600 border border-slate-200 rounded-xl p-6 text-slate-800 text-lg leading-relaxed whitespace-pre-line mb-6 select-none font-medium">
-                                {READING_PASSAGE}
+                            <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-xl text-sm text-indigo-900 font-medium mb-6">
+                                📌 <strong>Instructions:</strong> Start Recording par click karein aur niche diye gaye 4 lines ko saaf aawaz me padhein. Jo words sahi honge wo <strong className="text-emerald-700">Green</strong> honge, aur jo miss honge wo stop karne par <strong className="text-rose-600 underline">Red</strong> highlight honge.
                             </div>
 
-                            {readingTranscript && (
-                                <div className="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
-                                    <p className="text-xs font-bold uppercase text-slate-500 mb-1">Live Captured Speech:</p>
-                                    <p className="text-sm text-slate-700 italic">"{readingTranscript}"</p>
-                                </div>
-                            )}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-lg leading-relaxed whitespace-pre-line mb-6 font-medium">
+                                {renderHighlightedPassage()}
+                            </div>
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
                                 {!isRecording && !hasRecordedCurrent && (
-                                    <button 
-                                        onClick={startRecording} 
-                                        className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl transition shadow-md shadow-rose-600/20 flex items-center gap-2"
-                                    >
-                                        <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span> Start Reading
+                                    <button onClick={startRecording} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-md flex items-center gap-2">
+                                        🎙️ Start Reading
                                     </button>
                                 )}
                                 {isRecording && (
-                                    <button 
-                                        onClick={stopRecording} 
-                                        className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-xl transition"
-                                    >
+                                    <button onClick={stopRecording} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md flex items-center gap-2">
                                         ■ Stop Reading
                                     </button>
                                 )}
                                 {!isRecording && hasRecordedCurrent && (
-                                    <button 
-                                        onClick={() => { setStep(2); setHasRecordedCurrent(false); }} 
-                                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition shadow-md shadow-indigo-600/20"
-                                    >
-                                        Proceed to Logic Questions →
+                                    <button onClick={() => { setStep(2); setHasRecordedCurrent(false); }} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">
+                                        Proceed to Logic Test →
                                     </button>
                                 )}
                             </div>
@@ -377,216 +419,193 @@
                     {/* Step 2: 5 Randomized Logic Questions */}
                     {step === 2 && assignedQuestions.length > 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-                            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
                                 <div>
-                                    <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Part 2 of 2: Everyday Logic</span>
-                                    <h2 className="text-xl font-bold text-slate-900">Question {currentQIndex + 1} of 5</h2>
+                                    <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider">Part 2 of 2</span>
+                                    <h2 className="text-2xl font-bold text-slate-900 mt-1">Randomized Logic Questions</h2>
                                 </div>
-                                <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1 rounded-lg">
-                                    {currentQIndex + 1} / 5
+                                <span className="text-sm font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-lg">
+                                    Question {currentQIndex + 1} / 5
                                 </span>
                             </div>
 
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
-                                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">Question for this agent:</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">Audio Prompt:</span>
                                 <p className="text-2xl font-bold text-slate-900 mt-2">{assignedQuestions[currentQIndex].q}</p>
                             </div>
 
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6">
-                                <span className="text-xs font-bold uppercase text-slate-500">Live Answer Captured:</span>
-                                <p className="text-base text-slate-800 mt-1 italic font-medium">
-                                    {qaTranscripts[currentQIndex] ? `"${qaTranscripts[currentQIndex]}"` : "(Click record answer and speak clearly)"}
+                                <span className="text-xs font-bold uppercase text-slate-400">Captured Answer Transcript:</span>
+                                <p className="text-lg text-slate-800 mt-1 italic font-medium min-h-[28px]">
+                                    {qaTranscripts[currentQIndex] ? `"${qaTranscripts[currentQIndex]}"` : "(Mic start karke apna answer bolein...)"}
                                 </p>
                             </div>
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
                                 {!isRecording && !hasRecordedCurrent && (
-                                    <button 
-                                        onClick={startRecording} 
-                                        className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl transition shadow-md shadow-rose-600/20 flex items-center gap-2"
-                                    >
-                                        <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span> Record Answer
-                                    </button>
+                                    <button onClick={startRecording} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-md">🎙️ Record Answer</button>
                                 )}
                                 {isRecording && (
-                                    <button 
-                                        onClick={stopRecording} 
-                                        className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-xl transition"
-                                    >
-                                        ■ Stop Recording
-                                    </button>
+                                    <button onClick={stopRecording} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md">■ Stop Recording</button>
                                 )}
                                 {!isRecording && hasRecordedCurrent && currentQIndex < 4 && (
-                                    <button 
-                                        onClick={() => { setCurrentQIndex(prev => prev + 1); setHasRecordedCurrent(false); }} 
-                                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition shadow-md shadow-indigo-600/20"
-                                    >
-                                        Next Question →
-                                    </button>
+                                    <button onClick={() => { setCurrentQIndex(prev => prev + 1); setHasRecordedCurrent(false); }} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-md">Next Question →</button>
                                 )}
                                 {!isRecording && hasRecordedCurrent && currentQIndex === 4 && (
-                                    <button 
-                                        onClick={calculateEvaluation} 
-                                        className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md shadow-emerald-600/25"
-                                    >
-                                        {isEvaluating ? "Analyzing Answers..." : "Submit & Generate Report"}
+                                    <button onClick={calculateEvaluation} className="px-8 py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl transition shadow-md">
+                                        {isEvaluating ? "Analyzing Performance..." : "Submit & Generate Report"}
                                     </button>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {/* Step 3: Result Dashboard */}
+                    {/* Step 3: Result Dashboard with Pinpointed Mistake Audit */}
                     {step === 3 && result && (
                         <div className="space-y-6">
-                            {/* Candidate Summary Card */}
-                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                            {/* Summary Card */}
+                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                                <div className={`px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${result.isPassed ? "bg-emerald-600" : "bg-rose-600"} text-white`}>
                                     <div>
-                                        <div className="flex items-center gap-2.5">
-                                            <h2 className="text-2xl font-black text-slate-900">{agentName}</h2>
-                                            {agentId && <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded font-mono font-medium">{agentId}</span>}
-                                        </div>
-                                        <p className="text-xs text-slate-500 mt-1">Evaluated On: {result.timestamp}</p>
+                                        <h2 className="text-3xl font-black">{agentName}</h2>
+                                        <p className="text-sm font-medium opacity-90 mt-1">{result.timestamp} • {agentId || "No ID"}</p>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-4 py-1.5 rounded-full text-sm font-bold tracking-wide uppercase ${result.isPassed ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-rose-100 text-rose-800 border border-rose-200"}`}>
-                                            {result.isPassed ? "✓ PASSED" : "✕ FAILED"}
+                                    <div className="text-left sm:text-right">
+                                        <div className="text-4xl font-black">{result.overallScore}<span className="text-xl opacity-80">/100</span></div>
+                                        <span className="inline-block mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                            {result.isPassed ? "✓ ASSESSMENT PASSED" : "✕ ASSESSMENT FAILED"}
                                         </span>
-                                        <button 
-                                            onClick={downloadCSV} 
-                                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition shadow"
-                                        >
-                                            Export CSV
+                                    </div>
+                                </div>
+
+                                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900 mb-4">Competency Scores</h3>
+                                        <ProgressBar label="Pronunciation" value={result.pronunciation} colorClass="bg-indigo-600" />
+                                        <ProgressBar label="Fluency & Speed" value={result.fluency} colorClass="bg-blue-600" />
+                                        <ProgressBar label="Logic & Common Sense" value={result.logicScore} colorClass="bg-emerald-600" />
+                                        <ProgressBar label="Vocabulary Range" value={result.vocabulary} colorClass="bg-amber-600" />
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900 mb-4">Final Verdict</h3>
+                                        {result.isPassed ? (
+                                            <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-medium">
+                                                ✅ <strong>Candidate Qualified:</strong> Agent ne pronunciation, reading speed aur logic questions ke sabhi benchmarks clear kar liye hain.
+                                            </div>
+                                        ) : (
+                                            <div className="p-5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm font-medium">
+                                                ⚠️ <strong>Candidate Disqualified:</strong> Minimum passing requirements match nahi huye. Niche diye gaye <strong>"Mistake Audit"</strong> section me check karein ki galti kahan hui thi.
+                                            </div>
+                                        )}
+                                        <button onClick={downloadCSV} className="w-full mt-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition text-sm flex items-center justify-center gap-2 shadow">
+                                            📥 Download Official Evaluation Report (CSV)
                                         </button>
                                     </div>
                                 </div>
-
-                                {/* Score Highlights */}
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
-                                    <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 text-center">
-                                        <p className="text-xs font-bold text-indigo-700 uppercase">Overall Versant</p>
-                                        <p className="text-3xl font-black text-indigo-950 mt-1">{result.overallScore}<span className="text-sm font-normal text-indigo-600">/100</span></p>
-                                        <p className="text-xs font-semibold text-indigo-800 mt-1">{result.level.split(' ')[0]}</p>
-                                    </div>
-                                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Pronunciation</p>
-                                        <p className="text-3xl font-bold text-slate-800 mt-1">{result.pronunciation}%</p>
-                                        <p className="text-xs text-slate-500 mt-1">Acoustic Clarity</p>
-                                    </div>
-                                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Fluency</p>
-                                        <p className="text-3xl font-bold text-slate-800 mt-1">{result.fluency}%</p>
-                                        <p className="text-xs text-slate-500 mt-1">Flow & Cadence</p>
-                                    </div>
-                                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Logic Answers</p>
-                                        <p className="text-3xl font-bold text-slate-800 mt-1">{result.correctCount}/5</p>
-                                        <p className="text-xs text-slate-500 mt-1">{result.logicScore}% Accuracy</p>
-                                    </div>
-                                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center col-span-2 md:col-span-1">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Vocabulary</p>
-                                        <p className="text-3xl font-bold text-slate-800 mt-1">{result.vocabulary}%</p>
-                                        <p className="text-xs text-slate-500 mt-1">Comprehension</p>
-                                    </div>
-                                </div>
-
-                                {/* Failure reason block */}
-                                {!result.isPassed ? (
-                                    <div className="mt-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900">
-                                        <p className="text-sm font-bold flex items-center gap-2 mb-1.5 text-rose-950">
-                                            <span>⚠️</span> Assessment Failure Diagnosed Reasons:
-                                        </p>
-                                        <ul className="text-xs space-y-1 list-disc list-inside text-rose-800 font-medium">
-                                            {result.failureReasons.map((reason, idx) => (
-                                                <li key={idx}>{reason}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                ) : (
-                                    <div className="mt-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium">
-                                        Candidate cleared all minimum benchmarks. Reading fidelity was {result.readingAccuracy}% and {result.correctCount}/5 logic questions were answered accurately.
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Section: Live Audios & Breakdown */}
-                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
-                                <h3 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">
-                                    Individual Audio Playback & Answer Verification
-                                </h3>
-
-                                {/* Part 1 Audio */}
-                                <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                            {/* EXACT MISTAKE AUDIT CARD (Kaha Galti Hui Thi) */}
+                            {!result.isPassed && (
+                                <div className="bg-white border-2 border-rose-200 rounded-2xl shadow-sm p-6 sm:p-8">
+                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-rose-100">
+                                        <span className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-lg">⚠️</span>
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-indigo-700">Part 1: 4-Line Reading Audio</p>
-                                            <p className="text-xs text-slate-500">Text Match Fidelity: {result.readingAccuracy}%</p>
+                                            <h3 className="text-lg font-bold text-slate-900">Mistake Diagnostics (Galti Kahan Hui Thi)</h3>
+                                            <p className="text-xs text-slate-500">Fail hone ke mukhya kaaran aur candidate ki galtiyan:</p>
                                         </div>
-                                        {readingAudioURL && (
-                                            <audio controls src={readingAudioURL} className="h-9 w-full sm:w-64" />
-                                        )}
                                     </div>
-                                    <p className="text-xs text-slate-600 bg-white p-3 rounded border border-slate-200 italic">
-                                        "{readingTranscript || "No voice captured"}"
-                                    </p>
+
+                                    {/* Primary Reasons List */}
+                                    <div className="space-y-3 mb-6">
+                                        {result.detailedMistakes.map((item, idx) => (
+                                            <div key={idx} className="p-4 rounded-xl bg-rose-50/70 border border-rose-200">
+                                                <p className="text-sm font-bold text-rose-900">{idx + 1}. {item.title}</p>
+                                                <p className="text-xs text-rose-700 mt-1 font-medium">{item.desc}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Missed words details */}
+                                    {result.missedWordsList && result.missedWordsList.length > 0 && (
+                                        <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                            <p className="text-xs font-bold uppercase text-slate-600 mb-2">Reading Passage me Miss / Mispronounced Words ({result.missedWordsList.length}):</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {result.missedWordsList.map((word, wIdx) => (
+                                                    <span key={wIdx} className="px-2.5 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-md text-xs font-bold">
+                                                        {word}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Failed logic questions details */}
+                                    {result.failedQuestionsList && result.failedQuestionsList.length > 0 && (
+                                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                            <p className="text-xs font-bold uppercase text-slate-600 mb-3">Galat Answers Diye Gaye Questions ({result.failedQuestionsList.length}):</p>
+                                            <div className="space-y-3">
+                                                {result.failedQuestionsList.map((item, fIdx) => (
+                                                    <div key={fIdx} className="p-3 bg-white rounded-lg border border-slate-200 text-xs">
+                                                        <p className="font-bold text-slate-800">Q{item.qNum}: {item.question}</p>
+                                                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                            <div className="text-rose-700 font-medium">
+                                                                <span className="font-bold">Candidate ne bola:</span> "{item.agentSaid}"
+                                                            </div>
+                                                            <div className="text-emerald-700 font-medium">
+                                                                <span className="font-bold">Sahi answer hona chahiye tha:</span> {item.expected}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Full Audio Playback Audit */}
+                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 pb-3 border-b border-slate-100">Live Recording & Audio Playback</h3>
+                                
+                                <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+                                        <div>
+                                            <p className="text-sm font-bold text-indigo-700">Part 1: Reading Recording Audit</p>
+                                            <p className="text-xs text-slate-500">Passage Accuracy: {result.readingAccuracy}%</p>
+                                        </div>
+                                        {readingAudioURL && <audio controls src={readingAudioURL} className="h-8 w-full sm:w-64" />}
+                                    </div>
+                                    <div className="p-4 bg-white border border-slate-200 rounded-lg text-sm font-medium leading-relaxed">
+                                        {renderHighlightedPassage()}
+                                    </div>
                                 </div>
 
-                                {/* Part 2 Audios for 5 Unique Questions */}
-                                <div className="space-y-3">
-                                    <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">Part 2: 5 Random Questions & Answers</p>
-
+                                <div className="space-y-4">
+                                    <p className="text-sm font-bold text-indigo-700">Part 2: 5 Logic Questions Audio Breakdown</p>
                                     {result.breakdown.map((item, idx) => (
-                                        <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition">
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${item.isCorrect ? "bg-emerald-500" : "bg-rose-500"}`}>
-                                                        {item.isCorrect ? "✓" : "✕"}
-                                                    </span>
-                                                    <p className="text-sm font-bold text-slate-800">Q{idx + 1}: {item.question}</p>
-                                                </div>
-                                                <span className={`text-xs font-semibold px-2 py-0.5 rounded self-start sm:self-auto ${item.isCorrect ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-rose-50 text-rose-700 border border-rose-200"}`}>
+                                        <div key={idx} className="p-4 bg-white border border-slate-200 rounded-xl">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <p className="text-sm font-bold text-slate-800">Q{idx + 1}: {item.question}</p>
+                                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${item.isCorrect ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                                                     {item.isCorrect ? "Correct" : "Incorrect"}
                                                 </span>
                                             </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mb-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs mt-3 bg-slate-50 p-3 rounded-lg">
                                                 <div>
-                                                    <span className="text-slate-400 font-semibold">Agent Said:</span>
-                                                    <p className="text-slate-700 font-medium italic">"{item.candidateAnswer}"</p>
+                                                    <p><span className="text-slate-500 font-bold">Candidate Answer:</span> <span className="italic font-medium text-slate-800">"{item.candidateAnswer}"</span></p>
+                                                    <p className="mt-1"><span className="text-slate-500 font-bold">Expected:</span> <span className="font-semibold text-slate-800">{item.expected}</span></p>
                                                 </div>
-                                                <div>
-                                                    <span className="text-slate-400 font-semibold">Expected Answer:</span>
-                                                    <p className="text-slate-700 font-medium">{item.expected}</p>
-                                                </div>
+                                                {item.audio && <audio controls src={item.audio} className="h-8 w-full sm:w-52" />}
                                             </div>
-
-                                            {item.audio && (
-                                                <div className="flex items-center justify-between pt-1">
-                                                    <span className="text-xs text-slate-400 font-medium">Listen Answer Recording:</span>
-                                                    <audio controls src={item.audio} className="h-8 w-full sm:w-60" />
-                                                </div>
-                                            )}
                                         </div>
                                     ))}
                                 </div>
                             </div>
-
-                            {/* Reset Button for Next Candidate */}
+                            
                             <div className="text-center pb-8">
-                                <button 
-                                    onClick={() => {
-                                        setStep(0);
-                                        setAgentName("");
-                                        setAgentId("");
-                                        setReadingTranscript("");
-                                        setReadingAudioURL(null);
-                                        setResult(null);
-                                        setAssignedQuestions([]);
-                                    }} 
-                                    className="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl text-sm transition"
-                                >
-                                    ← Conduct Next Agent Assessment
+                                <button onClick={() => window.location.reload()} className="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm rounded-xl transition">
+                                    ↻ Conduct Test for New Agent
                                 </button>
                             </div>
                         </div>
