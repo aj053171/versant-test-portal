@@ -3,1036 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Versant Assessment Portal</title>
-    <script>
-        // Force HTTPS only if explicitly using HTTP (Safe for portal/iframe previews)
-        if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-            location.replace(`https://${location.host}${location.pathname}${location.search}`);
-        }
-    </script>
+    <title>Versant Test Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .recording-pulse {
-            animation: pulse-red 1.5s infinite;
-        }
-        @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        /* Custom scrollbar for table */
-        .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
-        .table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .table-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .word-match { color: #16a34a; font-weight: 500; transition: color 0.2s; }
-        .word-miss { color: #dc2626; font-weight: 700; background-color: #fef2f2; padding: 0 2px; border-radius: 2px; transition: all 0.2s; }
-        .word-pending { color: #475569; }
-    </style>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+<body class="bg-slate-900 text-white min-h-screen p-8 font-sans">
+    <div id="root"></div>
 
-    <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
-                    <i class="fas fa-microphone-lines"></i>
-                </div>
-                <div>
-                    <h1 class="font-bold text-xl leading-tight text-gray-900">Versant AI Assessor</h1>
-                    <p class="text-xs text-gray-500 font-medium">Automated Speech Evaluation</p>
-                </div>
-            </div>
-            <div class="flex space-x-2">
-                <button onclick="document.getElementById('hostHelpModal').classList.remove('hidden')" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors shadow-sm"><i class="fas fa-globe mr-1"></i> Get Shareable Link</button>
-                <button id="navTestBtn" class="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md transition-colors">Assessment Portal</button>
-                <button id="navDashboardBtn" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors">Admin Dashboard</button>
-            </div>
-        </div>
-    </header>
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
 
-    <!-- Main Content Area -->
-    <main class="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full relative">
-
-        <!-- Hosting Help Modal (NEW) -->
-        <div id="hostHelpModal" class="fixed inset-0 z-[110] bg-gray-900 bg-opacity-75 flex items-center justify-center hidden backdrop-blur-sm p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 relative">
-                <button onclick="document.getElementById('hostHelpModal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl"><i class="fas fa-times"></i></button>
-                <h2 class="text-2xl font-bold text-gray-900 mb-4" id="hostHelpTitle"><i class="fas fa-globe text-green-600 mr-2"></i> Get a Permanent Free Link</h2>
-                <p class="text-gray-600 mb-4 text-sm" id="hostHelpDesc">To share this portal with candidates so it works everywhere, you need to host it. Here are the best <b>100% Free & Permanent</b> methods:</p>
-                
-                <div class="space-y-4 text-sm text-gray-700 bg-gray-50 p-4 rounded-lg border border-gray-200 h-64 overflow-y-auto">
-                    <p class="font-bold text-blue-800 text-base border-b pb-1">Method 1: Netlify (Easiest)</p>
-                    <p>1. Go to <a href="https://app.netlify.com/drop" target="_blank" class="text-blue-600 font-bold underline">Netlify Drop</a>.</p>
-                    <p>2. Drag and drop your downloaded <b>index.html</b> file onto the circle.</p>
-                    <p>3. They will give you a live link. <b class="text-red-600">Important:</b> Click "Sign up" to create a free account right after to "claim" the site so it never expires!</p>
-                    
-                    <p class="font-bold text-blue-800 text-base border-b pb-1 mt-6">Method 2: GitHub Pages (Best & Most Professional)</p>
-                    <p>1. Create a free account on <a href="https://github.com/" target="_blank" class="text-blue-600 font-bold underline">GitHub.com</a>.</p>
-                    <p>2. Create a "New Repository" (name it e.g., <i>versant-portal</i>).</p>
-                    <p>3. Click <b>"Add file"</b> -> <b>"Upload files"</b> and upload your <i>index.html</i>.</p>
-                    <p>4. Go to your repository <b>Settings</b> -> <b>Pages</b> (on the left menu).</p>
-                    <p>5. Under "Build and deployment" -> "Branch", select <b>main</b> and click Save.</p>
-                    <p>6. GitHub will give you a permanent link (like <i>username.github.io/versant-portal</i>) in about 2 minutes!</p>
-                </div>
-                <button onclick="document.getElementById('hostHelpModal').classList.add('hidden')" class="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md">
-                    Got it, I will upload it now!
-                </button>
-            </div>
-        </div>
+        const SUBJECT_TEXT = "Welcome to the customer support center. I am here to help you resolve your internet connectivity issues today. Please ensure your router is plugged in and the green light is flashing.";
         
-        <!-- Strict Browser & Mic Warning Modal (NEW) -->
-        <div id="strictBrowserWarning" class="fixed inset-0 z-[100] bg-gray-900 bg-opacity-95 flex items-center justify-center hidden backdrop-blur-sm p-4">
-            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center space-y-4 animation-fade-in">
-                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-microphone-slash text-2xl text-red-600"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-gray-900">Microphone Blocked!</h2>
-                <p class="text-gray-600">This assessment requires microphone access, but your current browser or app is blocking it.</p>
-                <div class="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 text-left border border-blue-100">
-                    <strong>How to fix this instantly:</strong><br><br>
-                    1. Click the button below to copy the link.<br>
-                    2. Open <b>Google Chrome</b> (Android/PC) or <b>Safari</b> (iPhone).<br>
-                    3. Paste the link, press enter, and allow microphone permissions.
-                </div>
-                <button onclick="copyLinkAndClose()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center shadow-md">
-                    <i class="fas fa-copy mr-2"></i> Copy Portal Link
-                </button>
-                <button onclick="dismissWarning()" class="w-full mt-3 text-sm text-gray-500 hover:text-gray-800 underline">
-                    I know what I'm doing - Try Anyway
-                </button>
-            </div>
-        </div>
-
-        <!-- Browser Support Warning (Old - Kept for fallback) -->
-        <div id="browserWarning" class="hidden mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
-            <div class="flex">
-                <div class="flex-shrink-0"><i class="fas fa-exclamation-triangle text-red-500 text-lg"></i></div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-bold text-red-800">Browser Compatibility Issue</h3>
-                    <p class="text-sm text-red-700 mt-1">This assessment requires Microphone and Speech Recognition. Please open this link in <b>Google Chrome</b>, <b>Microsoft Edge</b>, or <b>Safari</b>. <br><br><i>Note: If you opened this link inside an app like WhatsApp, please tap the three dots in the corner and select "Open in Chrome/Browser".</i></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Error Toast Notification -->
-        <div id="errorToast" class="hidden absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50 min-w-[300px] flex items-center justify-between transition-all duration-300">
-            <div class="flex items-center">
-                <i class="fas fa-exclamation-circle mr-3"></i>
-                <span id="errorMessage" class="font-medium text-sm">Error message here.</span>
-            </div>
-            <button onclick="hideError()" class="text-red-500 hover:text-red-700 ml-4"><i class="fas fa-times"></i></button>
-        </div>
-
-        <!-- 1. ASSESSMENT PORTAL VIEW -->
-        <div id="testView" class="space-y-6 max-w-3xl mx-auto block animation-fade-in">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-user-check mr-2 text-blue-600"></i>Candidate Information</h2>
-                    <span class="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Step 1 of 2</span>
-                </div>
-                <div class="p-6">
-                    <label for="empName" class="block text-sm font-medium text-gray-700 mb-2">Employee / Candidate Name</label>
-                    <input type="text" id="empName" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-gray-900" placeholder="e.g. Jane Doe">
-                </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-book-open mr-2 text-blue-600"></i>Reading Assessment</h2>
-                    <button onclick="generateNewParagraph()" class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center transition-colors">
-                        <i class="fas fa-sync-alt mr-1"></i> Change Subject
-                    </button>
-                </div>
-                
-                <div class="p-6 space-y-6">
-                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
-                        <div class="flex">
-                            <div class="flex-shrink-0"><i class="fas fa-info-circle text-yellow-600"></i></div>
-                            <div class="ml-3">
-                                <p class="text-sm text-yellow-800 font-medium">
-                                    Instruction: Click the microphone to start. Read the paragraph below loudly and clearly. Click Stop or simply pause speaking to finish.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="relative p-6 bg-gray-50 rounded-xl border border-gray-200">
-                        <i class="fas fa-quote-left text-3xl text-gray-200 absolute top-4 left-4"></i>
-                        <div id="testParagraph" class="text-lg md:text-xl leading-relaxed text-gray-700 relative z-10 pl-6 font-medium tracking-wide">
-                            Loading paragraph...
-                        </div>
-                    </div>
-
-                    <!-- Live Transcript Tracking preview -->
-                    <div id="transcriptContainer" class="hidden">
-                        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2 tracking-wider">Live Transcript</label>
-                        <div id="transcriptPreview" class="p-4 bg-gray-900 text-green-400 font-mono text-sm rounded-lg min-h-[60px] max-h-32 overflow-y-auto shadow-inner border border-gray-700">
-                            Waiting for speech...
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col items-center justify-center pt-4 border-t border-gray-100">
-                        <button id="recordBtn" onclick="toggleRecording()" class="w-20 h-20 bg-blue-600 text-white rounded-full flex items-center justify-center text-3xl shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all duration-300 focus:outline-none">
-                            <i id="recordIcon" class="fas fa-microphone"></i>
-                        </button>
-                        <span id="recordingStatus" class="mt-4 font-semibold text-gray-500 text-sm uppercase tracking-widest">Ready to record</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loader -->
-            <div id="loader" class="hidden bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center space-y-4">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                <p class="text-gray-600 font-medium animate-pulse text-center">AI is analyzing speech patterns, fluency, and pronunciation...<br><span class="text-xs text-gray-400">Please wait a few seconds.</span></p>
-            </div>
-
-            <!-- Result Card -->
-            <div id="resultCard" class="hidden bg-white rounded-xl shadow-lg border-2 border-blue-100 overflow-hidden transform transition-all">
-                <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex justify-between items-center">
-                    <div>
-                        <h2 class="text-2xl font-bold">Assessment Complete</h2>
-                        <p class="text-blue-100 text-sm mt-1" id="resultAgentName">Candidate: Jane Doe</p>
-                    </div>
-                    <div class="text-center bg-white/20 px-6 py-3 rounded-lg backdrop-blur-sm border border-white/30">
-                        <p class="text-xs uppercase tracking-widest text-blue-100 font-semibold mb-1">Final Score</p>
-                        <div class="text-4xl font-extrabold flex items-baseline justify-center space-x-2">
-                            <span id="resultScore" class="drop-shadow-md">V4</span>
-                            <span class="text-lg font-medium opacity-80" id="resultPercentage">(85%)</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="p-6 space-y-6">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 text-center">
-                            <p class="text-xs text-gray-500 font-semibold uppercase mb-1">Pronunciation</p>
-                            <p class="text-lg font-bold text-gray-800" id="resPron">0</p>
-                        </div>
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 text-center">
-                            <p class="text-xs text-gray-500 font-semibold uppercase mb-1">Fluency</p>
-                            <p class="text-lg font-bold text-gray-800" id="resFlue">0</p>
-                        </div>
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 text-center">
-                            <p class="text-xs text-gray-500 font-semibold uppercase mb-1">Mastery</p>
-                            <p class="text-lg font-bold text-gray-800" id="resMast">0</p>
-                        </div>
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 text-center">
-                            <p class="text-xs text-gray-500 font-semibold uppercase mb-1">Vocabulary</p>
-                            <p class="text-lg font-bold text-gray-800" id="resVocab">0</p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 class="text-sm font-bold text-gray-800 uppercase tracking-wide border-b pb-2 mb-3">AI Evaluation Reasoning</h3>
-                        <p id="resultReason" class="text-gray-700 text-sm leading-relaxed italic bg-blue-50 p-4 rounded-lg border border-blue-100"></p>
-                    </div>
-
-                    <div>
-                        <h3 class="text-sm font-bold text-gray-800 uppercase tracking-wide border-b pb-2 mb-3">Detailed Feedback</h3>
-                        <p id="resultFeedback" class="text-gray-700 text-sm leading-relaxed"></p>
-                    </div>
-                    
-                    <div class="pt-4 border-t border-gray-100 text-center">
-                        <button onclick="resetTest()" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg transition-colors shadow-sm">
-                            <i class="fas fa-redo mr-2"></i> Evaluate Another Candidate
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2. DASHBOARD VIEW -->
-        <div id="dashboardView" class="hidden space-y-6 animation-fade-in w-full">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-900">Assessment Dashboard</h2>
-                    <p class="text-sm text-gray-500">Live results from all candidate tests.</p>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span id="connectionStatus" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        Checking connection...
-                    </span>
-                    <button onclick="exportToExcel()" class="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 shadow-sm transition-colors">
-                        <i class="fas fa-file-excel mr-2"></i> Export to CSV
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="table-container overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Candidate / Date</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Overall Score</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Versant Params</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Voice Recording</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Feedback & Reasoning</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dashboardTableBody" class="bg-white divide-y divide-gray-200">
-                            <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">Loading records...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- AI & Firebase Logic -->
-    <script type="module">
-        // Firebase Setup - Adhering strictly to constraints
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Generate dynamic paragraphs (3-4 lines)
-        const paragraphs = [
-            "Effective water management is crucial for sustainable business operations in the modern era. Companies must implement efficient recycling systems to minimize waste and reduce overall costs. Conserving our natural resources ensures long-term profitability while protecting the environment for future generations.",
-            "Cloud computing has completely revolutionized how modern businesses store and process their essential data. By utilizing decentralized servers, organizations can scale their infrastructure rapidly without massive hardware investments. This flexibility allows teams to collaborate seamlessly from any location around the globe.",
-            "Protecting endangered forests requires strict policies and active participation from local communities. Deforestation not only destroys unique habitats but also accelerates global climate change significantly. Planting native trees helps restore soil health and brings balance back to delicate ecosystems."
+        const QUESTIONS = [
+            "What is the main purpose of this support center?",
+            "What device should the customer check?",
+            "What specific light indicator should the customer look for?"
         ];
 
-        let currentParagraph = "";
-        let isRecording = false;
-        let speechRecognition = null;
-        let finalTranscript = "";
-        
-        // Audio Recording variables
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let audioDataURI = null;
-        let audioReadyPromise = null;
-        let audioReadyResolve = null;
-
-        // UI Elements
-        const ui = {
-            navTest: document.getElementById('navTestBtn'),
-            navDash: document.getElementById('navDashboardBtn'),
-            testView: document.getElementById('testView'),
-            dashView: document.getElementById('dashboardView'),
-            empName: document.getElementById('empName'),
-            testParagraph: document.getElementById('testParagraph'),
-            recordBtn: document.getElementById('recordBtn'),
-            recordIcon: document.getElementById('recordIcon'),
-            recordingStatus: document.getElementById('recordingStatus'),
-            transcriptContainer: document.getElementById('transcriptContainer'),
-            transcriptPreview: document.getElementById('transcriptPreview'),
-            loader: document.getElementById('loader'),
-            resultCard: document.getElementById('resultCard'),
-            errorToast: document.getElementById('errorToast'),
-            errorMsg: document.getElementById('errorMessage'),
-            connStatus: document.getElementById('connectionStatus')
-        };
-
-        // Database variables
-        let db = null;
-        let auth = null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'versant-eval-app';
-        let useLocalFallback = false;
-        let localDashboardData = []; // Fallback memory store
-
-        // Initialize Application
-        const init = async () => {
-            setupNavigation();
-            generateNewParagraph();
-            checkBrowserSupport();
-            await setupFirebase();
-        };
-
-        const checkBrowserSupport = () => {
-            // 1. Detect if the link is opened inside WhatsApp, Instagram, Facebook, etc.
-            const ua = navigator.userAgent || navigator.vendor || window.opera;
-            const isInAppBrowser = (ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1) || (ua.indexOf("Instagram") > -1) || (ua.indexOf("WhatsApp") > -1) || (ua.indexOf("Line") > -1) || (ua.indexOf("Snapchat") > -1) || (ua.indexOf("WeChat") > -1) || (ua.indexOf("LinkedIn") > -1);
+        function App() {
+            const [agentName, setAgentName] = useState("");
+            const [step, setStep] = useState(0); 
+            const [isRecording, setIsRecording] = useState(false);
+            const [hasRecordedCurrent, setHasRecordedCurrent] = useState(false); // New state to block re-recording
             
-            // 2. Check for native browser features
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            const [readingTranscript, setReadingTranscript] = useState("");
+            const [qaTranscripts, setQaTranscripts] = useState(["", "", ""]);
+            const [currentQ, setCurrentQ] = useState(0);
             
-            // Show soft warning banner instead of hard block, allowing them to still try
-            if (isInAppBrowser || !SpeechRecognition || !hasMediaDevices) {
-                const warningBanner = document.getElementById('browserWarning');
-                if (warningBanner) {
-                    warningBanner.classList.remove('hidden');
-                    if (isInAppBrowser) {
-                        warningBanner.querySelector('p').innerHTML = "You are using an In-App Browser (like WhatsApp). If the microphone fails, please tap the menu and select <b>Open in Chrome / Safari</b>.";
-                    }
-                }
-            }
+            const [audioURL, setAudioURL] = useState(null);
+            const [scoreData, setScoreData] = useState(null);
+            const [isEvaluating, setIsEvaluating] = useState(false);
 
-            // 3. Detect if opened locally via file:///
-            if (window.location.protocol === 'file:') {
-                document.getElementById('hostHelpModal').classList.remove('hidden');
-            }
-        };
+            const mediaRecorder = useRef(null);
+            const audioChunks = useRef([]);
+            const recognition = useRef(null);
 
-        window.copyLinkAndClose = async () => {
-            const url = window.location.href;
-            try {
-                // Try modern clipboard API first (Works best on latest iPhones/Androids)
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(url);
-                } else {
-                    // Fallback for older browsers
-                    const dummy = document.createElement('input');
-                    document.body.appendChild(dummy);
-                    dummy.value = url;
-                    dummy.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(dummy);
+            useEffect(() => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (SpeechRecognition) {
+                    recognition.current = new SpeechRecognition();
+                    recognition.current.continuous = true;
+                    recognition.current.interimResults = true;
+                    
+                    recognition.current.onresult = (event) => {
+                        let finalTranscript = '';
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                finalTranscript += event.results[i][0].transcript + ' ';
+                            }
+                        }
+                        if (step === 1) {
+                            setReadingTranscript(prev => prev + finalTranscript);
+                        } else if (step === 2) {
+                            const newQa = [...qaTranscripts];
+                            newQa[currentQ] += finalTranscript;
+                            setQaTranscripts(newQa);
+                        }
+                    };
                 }
+            }, [step, currentQ, qaTranscripts]);
+
+            const startRecording = async () => {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder.current = new MediaRecorder(stream);
                 
-                const btn = document.querySelector('#strictBrowserWarning button');
-                btn.innerHTML = '<i class="fas fa-check mr-2"></i> Link Copied! Open Chrome/Safari';
-                btn.classList.replace('bg-blue-600', 'bg-green-600');
-                btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
-            } catch (err) {
-                console.error("Failed to copy", err);
-                alert("Please manually copy this link and open in Chrome/Safari: " + url);
-            }
-        };
+                mediaRecorder.current.ondataavailable = (e) => {
+                    audioChunks.current.push(e.data);
+                };
 
-        window.dismissWarning = () => {
-            document.getElementById('strictBrowserWarning').classList.add('hidden');
-            ui.recordBtn.disabled = false;
-            ui.recordBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        };
+                mediaRecorder.current.onstop = () => {
+                    const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+                    const url = URL.createObjectURL(audioBlob);
+                    setAudioURL(url);
+                };
 
-        // Firebase Initialization with Local Fallback
-        const setupFirebase = async () => {
-            try {
-                if (typeof __firebase_config === 'undefined') {
-                    throw new Error("Firebase config missing. Running in Local Memory mode.");
-                }
-                
-                const firebaseConfig = JSON.parse(__firebase_config);
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Auth Before Queries Rule
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                ui.connStatus.textContent = "Cloud Connected";
-                ui.connStatus.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800";
-                
-                startDashboardListener();
-            } catch (error) {
-                console.warn(error.message);
-                useLocalFallback = true;
-                ui.connStatus.textContent = "Local Memory Mode";
-                ui.connStatus.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800";
-                renderDashboard(localDashboardData); // Render empty/local state
-            }
-        };
-
-        // Navigation
-        const setupNavigation = () => {
-            ui.navTest.addEventListener('click', () => {
-                ui.testView.classList.remove('hidden');
-                ui.dashView.classList.add('hidden');
-                ui.navTest.classList.replace('text-gray-600', 'text-blue-700');
-                ui.navTest.classList.replace('hover:bg-gray-100', 'bg-blue-50');
-                ui.navDash.classList.replace('text-blue-700', 'text-gray-600');
-                ui.navDash.classList.replace('bg-blue-50', 'hover:bg-gray-100');
-            });
-            ui.navDash.addEventListener('click', () => {
-                ui.testView.classList.add('hidden');
-                ui.dashView.classList.remove('hidden');
-                ui.navDash.classList.replace('text-gray-600', 'text-blue-700');
-                ui.navDash.classList.replace('hover:bg-gray-100', 'bg-blue-50');
-                ui.navTest.classList.replace('text-blue-700', 'text-gray-600');
-                ui.navTest.classList.replace('bg-blue-50', 'hover:bg-gray-100');
-            });
-        };
-
-        // Paragraph Management
-        window.generateNewParagraph = () => {
-            const randomIndex = Math.floor(Math.random() * paragraphs.length);
-            currentParagraph = paragraphs[randomIndex];
-            ui.testParagraph.innerHTML = `<span class="word-pending">${currentParagraph}</span>`;
-            ui.transcriptPreview.textContent = "";
-            ui.transcriptContainer.classList.add('hidden');
-            hideError();
-        };
-
-        // Notification Manager
-        window.showError = (msg) => {
-            ui.errorMsg.textContent = msg;
-            ui.errorToast.classList.remove('hidden');
-            setTimeout(hideError, 5000);
-        };
-        window.hideError = () => ui.errorToast.classList.add('hidden');
-
-        // Text comparison logic for live highlighting
-        const getLiveHighlightedHTML = (expectedText, spokenText, isFinal = false) => {
-            // Remove punctuation and lowercase for comparison
-            const cleanExpected = expectedText.replace(/[^\w\s]/g, '').toLowerCase().split(/\s+/);
-            const cleanSpoken = spokenText.replace(/[^\w\s]/g, '').toLowerCase().split(/\s+/);
-            
-            // Keep original words to display
-            const originalWords = expectedText.split(/(\s+)/); 
-            
-            let htmlOut = "";
-            let spokenIndex = 0;
-            let expectedWordIdx = 0;
-
-            for (let i = 0; i < originalWords.length; i++) {
-                const token = originalWords[i];
-                if (token.trim() === '') {
-                    htmlOut += token; // Preserve spaces/punctuation
-                    continue;
-                }
-
-                const expClean = cleanExpected[expectedWordIdx];
-                
-                // Very basic sequential matching algorithm for real-time
-                let matched = false;
-                // Look ahead slightly in spoken text to account for skipped words
-                for(let j = spokenIndex; j < Math.min(spokenIndex + 3, cleanSpoken.length); j++) {
-                    if (expClean === cleanSpoken[j]) {
-                        matched = true;
-                        spokenIndex = j + 1;
-                        break;
-                    }
-                }
-
-                if (matched) {
-                    htmlOut += `<span class="word-match">${token}</span>`;
-                } else if (isFinal || spokenIndex >= cleanSpoken.length - 2) {
-                    // Only mark red if it's the final evaluation OR the speaker has spoken past this point
-                    if (isFinal) {
-                       htmlOut += `<span class="word-miss">${token}</span>`; 
-                    } else {
-                       htmlOut += `<span class="word-pending">${token}</span>`;
-                    }
-                } else {
-                    htmlOut += `<span class="word-pending">${token}</span>`;
-                }
-                
-                expectedWordIdx++;
-            }
-            return htmlOut;
-        };
-
-
-        // Speech Recognition Setup
-        const initSpeechRecognition = () => {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                showError("Speech Recognition is not supported in this browser. Please use Chrome or Edge.");
-                return false;
-            }
-            speechRecognition = new SpeechRecognition();
-            speechRecognition.continuous = true;
-            speechRecognition.interimResults = true;
-            speechRecognition.lang = 'en-US';
-
-            speechRecognition.onstart = () => {
-                isRecording = true;
-                finalTranscript = "";
-                ui.recordBtn.classList.replace('bg-blue-600', 'bg-red-500');
-                ui.recordBtn.classList.replace('hover:bg-blue-700', 'hover:bg-red-600');
-                ui.recordIcon.classList.replace('fa-microphone', 'fa-stop');
-                ui.recordBtn.classList.add('recording-pulse');
-                ui.recordingStatus.textContent = 'Recording... Speak now (Auto-stops on pause)';
-                ui.transcriptContainer.classList.remove('hidden');
-                ui.transcriptPreview.textContent = "Listening...";
-                ui.resultCard.classList.add('hidden');
-                hideError();
+                audioChunks.current = [];
+                mediaRecorder.current.start();
+                if (recognition.current) recognition.current.start();
+                setIsRecording(true);
             };
 
-            speechRecognition.onresult = (event) => {
-                let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript + ' ';
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
-                }
-                const currentText = finalTranscript + interimTranscript;
-                ui.transcriptPreview.textContent = currentText;
+            const stopRecording = () => {
+                if (mediaRecorder.current) mediaRecorder.current.stop();
+                if (recognition.current) recognition.current.stop();
+                setIsRecording(false);
+                setHasRecordedCurrent(true); // Lock the recording button
+            };
+
+            const evaluateWithAI = async () => {
+                setIsEvaluating(true);
+                const API_KEY = "YOUR_GEMINI_API_KEY_HERE"; 
                 
-                // Update highlighting in real time
-                ui.testParagraph.innerHTML = getLiveHighlightedHTML(currentParagraph, currentText, false);
-            };
+                const prompt = `
+                    Evaluate this Versant test. 
+                    Original text: ${SUBJECT_TEXT}
+                    Agent read: ${readingTranscript}
+                    
+                    Q1: ${QUESTIONS[0]} | Ans: ${qaTranscripts[0]}
+                    Q2: ${QUESTIONS[1]} | Ans: ${qaTranscripts[1]}
+                    Q3: ${QUESTIONS[2]} | Ans: ${qaTranscripts[2]}
+                    
+                    Return ONLY a JSON object with this structure:
+                    {"versant_level": "V#", "pronunciation": 0-100, "fluency": 0-100, "mastery": 0-100, "vocabulary": 0-100, "feedback": "brief summary"}
+                `;
 
-            speechRecognition.onerror = (event) => {
-                if (event.error === 'no-speech') {
-                    console.warn("Speech Recognition: no speech detected.");
-                    return;
-                }
-                console.error("Speech Recognition Error", event.error);
-                if (event.error !== 'aborted') {
-                    showError("Microphone error: " + event.error);
-                    stopRecordingUI();
-                }
-            };
-
-            speechRecognition.onend = () => {
-                if (isRecording) {
-                    stopRecordingUI();
-                    processAudio();
-                }
-            };
-            return true;
-        };
-
-        const getBase64 = (blob) => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-
-        window.toggleRecording = async () => {
-            hideError();
-            if (!ui.empName.value.trim()) {
-                showError("Please enter your Employee Name before starting.");
-                ui.empName.focus();
-                return;
-            }
-
-            if (!speechRecognition && !initSpeechRecognition()) return;
-
-            if (isRecording) {
-                speechRecognition.stop(); // Triggers onend
-                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                    mediaRecorder.stop();
-                }
-            } else {
                 try {
-                    // Audio Capture Setup
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    
-                    // Universal Audio Format Selector (iPhone/Android/PC compatibility)
-                    const types = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/aac'];
-                    let options = {};
-                    for (let t of types) {
-                        if (typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(t)) {
-                            options = { mimeType: t };
-                            break;
-                        }
-                    }
-                    
-                    mediaRecorder = new MediaRecorder(stream, options);
-                    
-                    audioChunks = [];
-                    audioReadyPromise = new Promise(resolve => audioReadyResolve = resolve);
-                    
-                    mediaRecorder.ondataavailable = e => {
-                        if (e.data.size > 0) audioChunks.push(e.data);
-                    };
-                    
-                    mediaRecorder.onstop = async () => {
-                        // Explicitly assign the correct mimeType to ensure playback compatibility
-                        const actualMime = mediaRecorder.mimeType || 'audio/webm';
-                        const audioBlob = new Blob(audioChunks, { type: actualMime });
-                        try {
-                            audioDataURI = await getBase64(audioBlob);
-                        } catch (err) {
-                            console.error("Base64 conversion failed", err);
-                            audioDataURI = null;
-                        }
-                        audioReadyResolve(audioDataURI);
-                        stream.getTracks().forEach(track => track.stop());
-                    };
-                    
-                    mediaRecorder.start();
-                    speechRecognition.start(); 
-                } catch (e) {
-                    console.error("Error starting recording", e);
-                    // Only show the strict warning if the mic ACTUALLY fails to start
-                    document.getElementById('strictBrowserWarning').classList.remove('hidden');
-                    document.querySelector('#strictBrowserWarning p').innerHTML = "Microphone access was denied or blocked by this app. Please copy the link and open it in Google Chrome or Safari.";
-                    showError("Microphone access denied.");
-                }
-            }
-        };
-
-        const stopRecordingUI = () => {
-            isRecording = false;
-            ui.recordBtn.classList.replace('bg-red-500', 'bg-blue-600');
-            ui.recordBtn.classList.replace('hover:bg-red-600', 'hover:bg-blue-700');
-            ui.recordIcon.classList.replace('fa-stop', 'fa-microphone');
-            ui.recordBtn.classList.remove('recording-pulse');
-            ui.recordingStatus.textContent = 'Processing...';
-            
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
-        };
-
-        // The Smart Fallback Evaluator (Offline/Error Mode)
-        const offlineEvaluator = (expected, actual) => {
-            const expWords = expected.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w=>w);
-            const actWords = actual.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w=>w);
-            
-            let matches = 0;
-            actWords.forEach(word => {
-                if (expWords.includes(word)) matches++;
-            });
-            
-            const accuracy = Math.min(100, Math.round((matches / expWords.length) * 100));
-            
-            let score, reason, feedback, p, f, s, v;
-            
-            if (accuracy >= 85) {
-                score = "V5"; p = 92; f = 90; s = 88; v = 85;
-                reason = "Agent read with excellent accuracy and natural pacing, mimicking a native speaker.";
-                feedback = "Outstanding pronunciation and fluency. All parameters met expectations perfectly.";
-            } else if (accuracy >= 65) {
-                score = "V4"; p = 75; f = 72; s = 70; v = 68;
-                reason = "Agent was generally clear but missed or skipped a few words resulting in minor breaks in fluency.";
-                feedback = "Good attempt. Try to avoid rushing and pronounce each word fully to improve to V5.";
-            } else if (accuracy >= 40) {
-                score = "V3"; p = 55; f = 50; s = 48; v = 45;
-                reason = "Significant number of words were skipped, mispronounced, or spoken haltingly.";
-                feedback = "Needs improvement in reading accuracy and sentence mastery. Practice reading aloud slowly.";
-            } else {
-                score = "V2"; p = 30; f = 25; s = 20; v = 25;
-                reason = "The vast majority of the paragraph was unintelligible, entirely skipped, or completely incorrect.";
-                feedback = "Very poor read. Ensure you are in a quiet room and reading the text exactly as written.";
-            }
-            
-            return {
-                score: score,
-                percentageScore: `${accuracy}%`,
-                pronunciation: p, fluency: f, sentenceMastery: s, vocabulary: v,
-                reason: reason,
-                feedback: feedback
-            };
-        };
-
-        // Main Evaluation Logic
-        const processAudio = async () => {
-            const finalRead = ui.transcriptPreview.textContent.trim();
-            if (!finalRead || finalRead.length < 5) {
-                showError("Audio too short or not detected. Please try again.");
-                ui.recordingStatus.textContent = 'Ready to record';
-                return;
-            }
-            
-            ui.loader.classList.remove('hidden');
-            const finalAudioURI = audioReadyPromise ? await audioReadyPromise : null;
-            
-            // Final highlighting display
-            const finalMarkedHTML = getLiveHighlightedHTML(currentParagraph, finalRead, true);
-            ui.testParagraph.innerHTML = finalMarkedHTML;
-            
-            let assessment;
-            try {
-                // Attempt to use Cloud AI API
-                assessment = await evaluateWithGemini(currentParagraph, finalRead);
-            } catch (err) {
-                console.warn("AI API Error intercepted (Likely 402/404). Falling back to Local AI logic.", err);
-                // Silent Error Handling: instantly generate score locally
-                assessment = offlineEvaluator(currentParagraph, finalRead);
-            }
-            
-            if(assessment && assessment.score) {
-                displayResult(assessment);
-                await saveResultToFirebase(
-                    ui.empName.value.trim(), 
-                    assessment.score, 
-                    assessment.percentageScore,
-                    assessment.feedback, 
-                    assessment.reason,
-                    assessment.pronunciation, 
-                    assessment.fluency, 
-                    assessment.sentenceMastery,
-                    assessment.vocabulary,
-                    finalAudioURI
-                );
-            } else {
-                showError("An unexpected error occurred during evaluation.");
-            }
-            
-            ui.loader.classList.add('hidden');
-            ui.recordingStatus.textContent = 'Ready to record';
-        };
-
-        // Gemini AI Integration
-        const evaluateWithGemini = async (expectedText, spokenText) => {
-            const apiKey = ''; // Leave blank if injecting via proxy/env
-            if (!apiKey) {
-                // If no API key provided in code, immediately throw to trigger fallback
-                throw new Error("No API key available, using fallback.");
-            }
-
-            const prompt = `
-            You are a strict Versant English Speaking Assessor.
-            Compare the 'Expected Text' with what the agent actually read ('Spoken Transcript').
-            
-            Expected Text: "${expectedText}"
-            Spoken Transcript: "${spokenText}"
-            
-            Evaluate based on these official parameters:
-            1. Pronunciation (0-100)
-            2. Fluency (0-100)
-            3. Sentence Mastery (0-100)
-            4. Vocabulary (0-100)
-            
-            Overall Score Categories:
-            - V5: Excellent (Native-like, highly accurate, smooth)
-            - V4: Good (Minor errors, slightly unnatural pauses, mostly accurate)
-            - V3: Average (Noticeable errors, halting speech, skipped words)
-            - V2: Poor/Unintelligible (Missed most words, severe pronunciation issues)
-            
-            Return ONLY a raw JSON object with NO markdown formatting, NO backticks, and NO conversational text.
-            {
-                "score": "V2" or "V3" or "V4" or "V5",
-                "percentageScore": "XX%",
-                "pronunciation": 85,
-                "fluency": 82,
-                "sentenceMastery": 90,
-                "vocabulary": 88,
-                "reason": "Specific reason explaining exactly why this percentage and V-score were given based on the transcript.",
-                "feedback": "Actionable feedback for the agent."
-            }`;
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API HTTP Error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const textResponse = data.candidates[0].content.parts[0].text;
-            
-            // Clean AI response to extract pure JSON safely
-            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error("Could not parse JSON from AI.");
-            
-            return JSON.parse(jsonMatch[0]);
-        };
-
-        const displayResult = (data) => {
-            document.getElementById('resultAgentName').textContent = `Candidate: ${ui.empName.value.trim()}`;
-            document.getElementById('resultScore').textContent = data.score;
-            document.getElementById('resultPercentage').textContent = data.percentageScore ? `(${data.percentageScore})` : '';
-            
-            // Stats
-            document.getElementById('resPron').textContent = data.pronunciation || 'N/A';
-            document.getElementById('resFlue').textContent = data.fluency || 'N/A';
-            document.getElementById('resMast').textContent = data.sentenceMastery || 'N/A';
-            document.getElementById('resVocab').textContent = data.vocabulary || 'N/A';
-            
-            document.getElementById('resultReason').textContent = data.reason || 'Reasoning generated based on speech accuracy.';
-            document.getElementById('resultFeedback').textContent = data.feedback || 'Good effort.';
-            
-            ui.resultCard.classList.remove('hidden');
-        };
-
-        window.resetTest = () => {
-            ui.resultCard.classList.add('hidden');
-            ui.empName.value = '';
-            generateNewParagraph();
-        };
-
-        // RULE 1: Strict Paths - Public Data Collection
-        const getCollectionRef = () => {
-            return collection(db, 'artifacts', appId, 'public', 'data', 'versant_evaluations');
-        };
-
-        const saveResultToFirebase = async (empName, score, percentage, feedback, reason, p, f, s, v, audioData) => {
-            // 1. ALWAYS update local dashboard for instant gratification/audio playback
-            const newRecord = {
-                id: Date.now().toString(),
-                agentName: empName,
-                score: score,
-                percentageScore: percentage,
-                feedback: feedback,
-                reason: reason,
-                pronunciation: p, fluency: f, sentenceMastery: s, vocabulary: v,
-                audioDataURI: audioData, 
-                timeMillis: Date.now()
-            };
-            
-            localDashboardData.unshift(newRecord);
-            renderDashboard(localDashboardData);
-
-            // 2. Attempt Cloud Save if connected
-            if (useLocalFallback || !db || !auth?.currentUser) return;
-            
-            try {
-                // If audio string is huge, trim it for cloud storage to prevent 413 Payload Too Large
-                // Note: Interviewer can still play local copy for this session.
-                const cloudAudio = audioData && audioData.length < 800000 ? audioData : null; 
-                
-                await addDoc(getCollectionRef(), {
-                    agentName: empName,
-                    score: score,
-                    percentageScore: percentage,
-                    feedback: feedback,
-                    reason: reason,
-                    pronunciation: p, fluency: f, sentenceMastery: s, vocabulary: v,
-                    audioDataURI: cloudAudio,
-                    timestamp: serverTimestamp(),
-                    userId: auth.currentUser.uid
-                });
-            } catch (err) {
-                console.error("Cloud save skipped or failed. Data is available locally.", err);
-            }
-        };
-
-        const startDashboardListener = () => {
-            if (useLocalFallback || !db) return;
-            
-            // RULE 2: No Complex Queries - Fetch all, sort locally if needed
-            const q = query(getCollectionRef());
-            
-            onSnapshot(q, (snapshot) => {
-                const cloudData = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    cloudData.push({
-                        id: doc.id,
-                        ...data,
-                        timeMillis: data.timestamp ? data.timestamp.toMillis() : Date.now()
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                     });
-                });
-                
-                // Sort by newest first
-                cloudData.sort((a, b) => b.timeMillis - a.timeMillis);
-                
-                // Merge cloud data with our local sessions (which might have higher quality audio blobs)
-                // We prefer local records if IDs match, otherwise take cloud.
-                // For simplicity here, we just use cloudData and inject local audio if it's missing in cloud.
-                cloudData.forEach(cloudItem => {
-                    const localItem = localDashboardData.find(l => l.agentName === cloudItem.agentName && Math.abs(l.timeMillis - cloudItem.timeMillis) < 10000);
-                    if (localItem && localItem.audioDataURI && !cloudItem.audioDataURI) {
-                        cloudItem.audioDataURI = localItem.audioDataURI;
-                    }
-                });
-                
-                // Keep local items that aren't in cloud yet
-                localDashboardData.forEach(localItem => {
-                   if (!cloudData.find(c => c.agentName === localItem.agentName && Math.abs(c.timeMillis - localItem.timeMillis) < 10000)) {
-                       cloudData.push(localItem);
-                   }
-                });
-                
-                cloudData.sort((a, b) => b.timeMillis - a.timeMillis);
-                localDashboardData = cloudData; // update source of truth
-                renderDashboard(cloudData);
-                
-            }, (error) => {
-                console.error("Firebase listen error", error);
-            });
-        };
+                    
+                    const data = await response.json();
+                    let aiText = data.candidates[0].content.parts[0].text;
+                    aiText = aiText.replace(/```json/g, '').replace(/```/g, '');
+                    setScoreData(JSON.parse(aiText));
+                    setStep(3);
+                } catch (error) {
+                    console.error("AI Evaluation failed", error);
+                    alert("Evaluation failed. Please check your API key.");
+                }
+                setIsEvaluating(false);
+            };
 
-        const renderDashboard = (data) => {
-            const tbody = document.getElementById('dashboardTableBody');
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No assessment records found.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(item => {
-                const date = new Date(item.timeMillis).toLocaleString();
-                const scoreColor = item.score === 'V5' ? 'bg-green-100 text-green-800' : 
-                                  item.score === 'V4' ? 'bg-blue-100 text-blue-800' : 
-                                  item.score === 'V3' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+            const downloadCSV = () => {
+                const csvContent = "data:text/csv;charset=utf-8," 
+                    + "Agent Name,Level,Pronunciation,Fluency,Mastery,Vocabulary\n"
+                    + `${agentName},${scoreData.versant_level},${scoreData.pronunciation},${scoreData.fluency},${scoreData.mastery},${scoreData.vocabulary}`;
                 
-                return `
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="font-bold text-gray-900">${item.agentName || 'Unknown Agent'}</div>
-                        <div class="text-xs text-gray-500">${date}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center space-x-2">
-                            <span class="px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full ${scoreColor}">
-                                ${item.score || 'N/A'}
-                            </span>
-                            <span class="text-sm font-semibold text-gray-600">${item.percentageScore || ''}</span>
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `${agentName}_versant_score.csv`);
+                document.body.appendChild(link);
+                link.click();
+            };
+
+            const renderHighlightedText = () => {
+                const originalWords = SUBJECT_TEXT.toLowerCase().replace(/[.,]/g, '').split(' ');
+                const spokenWords = readingTranscript.toLowerCase().split(' ');
+
+                return originalWords.map((word, idx) => {
+                    const isMatched = spokenWords.includes(word);
+                    return (
+                        <span key={idx} className={isMatched ? "text-green-400" : "text-red-400"}>
+                            {word}{' '}
+                        </span>
+                    );
+                });
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto bg-slate-800 p-8 rounded-lg shadow-xl">
+                    <h1 className="text-3xl font-bold mb-6 border-b border-slate-700 pb-4">Versant AI Portal</h1>
+                    
+                    {step === 0 && (
+                        <div>
+                            <label className="block mb-2 text-lg">Enter Agent Name:</label>
+                            <input type="text" value={agentName} onChange={(e) => setAgentName(e.target.value)} className="w-full p-3 rounded bg-slate-700 mb-4 outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., Rahul Sharma"/>
+                            <button onClick={() => {if(agentName) setStep(1)}} className="bg-blue-600 px-6 py-2 rounded hover:bg-blue-500 font-semibold">Start Test</button>
                         </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 space-y-1">
-                        <div>Pron: <span class="font-semibold text-gray-800">${item.pronunciation || 'N/A'}</span></div>
-                        <div>Flue: <span class="font-semibold text-gray-800">${item.fluency || 'N/A'}</span></div>
-                        <div>Mast: <span class="font-semibold text-gray-800">${item.sentenceMastery || 'N/A'}</span></div>
-                        <div>Vocab: <span class="font-semibold text-gray-800">${item.vocabulary || 'N/A'}</span></div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${item.audioDataURI ? `
-                        <div class="flex flex-col space-y-2">
-                            <span class="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded w-max"><i class="fas fa-check-circle mr-1"></i> Call Recorded</span>
-                            <div class="flex items-center space-x-2">
-                                <audio controls preload="auto" class="h-10 w-48 rounded-full shadow-sm border border-gray-200">
-                                    <source src="${item.audioDataURI}" type="${item.audioDataURI.substring(5, item.audioDataURI.indexOf(';'))}">
-                                </audio>
-                                <a href="${item.audioDataURI}" download="Recording_${item.agentName ? item.agentName.replace(/\s+/g, '_') : 'Agent'}.weba" class="text-blue-600 hover:text-white hover:bg-blue-600 p-2 bg-blue-50 rounded-full transition-colors border border-blue-200 shadow-sm flex items-center justify-center h-10 w-10" title="Download Audio">
-                                    <i class="fas fa-download"></i>
-                                </a>
+                    )}
+
+                    {step === 1 && (
+                        <div>
+                            <h2 className="text-xl mb-4">Part 1: Reading Assessment</h2>
+                            <div className="bg-slate-700 p-6 rounded text-xl leading-relaxed mb-6 font-medium">
+                                {isRecording ? renderHighlightedText() : SUBJECT_TEXT}
+                            </div>
+                            <div className="flex gap-4">
+                                {!isRecording && !hasRecordedCurrent && (
+                                    <button onClick={startRecording} className="bg-red-600 px-6 py-2 rounded hover:bg-red-500">Start Reading</button>
+                                )}
+                                {isRecording && (
+                                    <button onClick={stopRecording} className="bg-slate-600 px-6 py-2 rounded hover:bg-slate-500">Stop Reading</button>
+                                )}
+                                {!isRecording && hasRecordedCurrent && (
+                                    <button onClick={() => {setStep(2); setHasRecordedCurrent(false);}} className="bg-blue-600 px-6 py-2 rounded hover:bg-blue-500">Proceed to Questions</button>
+                                )}
                             </div>
                         </div>
-                        ` : '<span class="text-gray-400 text-xs font-medium italic bg-gray-50 px-2 py-1 rounded border border-gray-100"><i class="fas fa-times-circle mr-1"></i> No Audio</span>'}
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-600">
-                        <div class="font-medium text-gray-800 mb-1">${item.feedback || 'No feedback provided.'}</div>
-                        <div class="text-xs text-gray-500 italic">${item.reason || ''}</div>
-                    </td>
-                </tr>
-                `;
-            }).join('');
-        };
+                    )}
 
-        // CSV Export Functionality
-        window.exportToExcel = () => {
-            if (localDashboardData.length === 0) {
-                showError("No data available to export.");
-                return;
-            }
+                    {step === 2 && (
+                        <div>
+                            <h2 className="text-xl mb-4">Part 2: Comprehension Questions</h2>
+                            <div className="bg-slate-700 p-6 rounded mb-6">
+                                <p className="text-2xl font-semibold text-blue-300">Question {currentQ + 1} of 3</p>
+                                <p className="text-xl mt-2">{QUESTIONS[currentQ]}</p>
+                                <p className="mt-4 text-slate-400 italic">Agent Answer: {qaTranscripts[currentQ]}</p>
+                            </div>
+                            <div className="flex gap-4">
+                                {!isRecording && !hasRecordedCurrent && (
+                                    <button onClick={startRecording} className="bg-red-600 px-6 py-2 rounded hover:bg-red-500">Record Answer</button>
+                                )}
+                                {isRecording && (
+                                    <button onClick={stopRecording} className="bg-slate-600 px-6 py-2 rounded hover:bg-slate-500">Stop Answer</button>
+                                )}
+                                {!isRecording && hasRecordedCurrent && currentQ < 2 && (
+                                    <button onClick={() => {setCurrentQ(prev => prev + 1); setHasRecordedCurrent(false);}} className="bg-blue-600 px-6 py-2 rounded hover:bg-blue-500">Next Question</button>
+                                )}
+                                {!isRecording && hasRecordedCurrent && currentQ === 2 && (
+                                    <button onClick={evaluateWithAI} className="bg-green-600 px-6 py-2 rounded hover:bg-green-500">
+                                        {isEvaluating ? "Analyzing..." : "Submit to AI"}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
-            // CSV Headers
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Date,Candidate Name,Score,Percentage,Pronunciation,Fluency,Sentence Mastery,Vocabulary,Reason,Feedback\n";
+                    {step === 3 && scoreData && (
+                        <div>
+                            <h2 className="text-2xl font-bold mb-6 text-green-400">Result Dashboard: {agentName}</h2>
+                            <div className="grid grid-cols-2 gap-6 mb-6">
+                                <div className="bg-slate-700 p-6 rounded flex flex-col items-center justify-center">
+                                    <p className="text-slate-400">Overall Versant Level</p>
+                                    <p className="text-5xl font-bold text-white mt-2">{scoreData.versant_level}</p>
+                                </div>
+                                <div className="bg-slate-700 p-6 rounded grid grid-cols-2 gap-4 text-center">
+                                    <div><p className="text-sm text-slate-400">Pronunciation</p><p className="text-2xl">{scoreData.pronunciation}</p></div>
+                                    <div><p className="text-sm text-slate-400">Fluency</p><p className="text-2xl">{scoreData.fluency}</p></div>
+                                    <div><p className="text-sm text-slate-400">Mastery</p><p className="text-2xl">{scoreData.mastery}</p></div>
+                                    <div><p className="text-sm text-slate-400">Vocabulary</p><p className="text-2xl">{scoreData.vocabulary}</p></div>
+                                </div>
+                            </div>
+                            <div className="bg-slate-700 p-4 rounded mb-6">
+                                <p className="font-semibold text-blue-300 mb-2">AI Feedback:</p>
+                                <p>{scoreData.feedback}</p>
+                            </div>
+                            <div className="flex gap-4">
+                                <button onClick={downloadCSV} className="bg-blue-600 px-6 py-2 rounded hover:bg-blue-500">Download Excel/CSV</button>
+                                {audioURL && (
+                                    <a href={audioURL} download={`${agentName}_audio.webm`} className="bg-slate-600 px-6 py-2 rounded hover:bg-slate-500 inline-block">Download Audio</a>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
 
-            localDashboardData.forEach(row => {
-                const date = new Date(row.timeMillis).toLocaleString().replace(/,/g, ''); // Remove commas to not break CSV
-                const name = `"${(row.agentName || '').replace(/"/g, '""')}"`;
-                const score = row.score || '';
-                const percentage = row.percentageScore || '';
-                const pron = row.pronunciation || '';
-                const flue = row.fluency || '';
-                const mast = row.sentenceMastery || '';
-                const vocab = row.vocabulary || '';
-                const reason = `"${(row.reason || '').replace(/"/g, '""')}"`;
-                const feedback = `"${(row.feedback || '').replace(/"/g, '""')}"`;
-
-                csvContent += `${date},${name},${score},${percentage},${pron},${flue},${mast},${vocab},${reason},${feedback}\n`;
-            });
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Versant_Report_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
-
-        // Run Init
-        window.addEventListener('DOMContentLoaded', init);
-
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
