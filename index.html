@@ -31,14 +31,12 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // 1. DYNAMIC READING PASSAGES
         const READING_PASSAGES = [
             "Welcome to the customer support line. Our technical team is available twenty-four hours a day to diagnose and resolve your internet issues.\nPlease check that the main power adapter is tightly connected to your wireless modem.\nVerify that the network signal light remains solid green and is not blinking red or amber.",
             "Customer service requires active listening and empathy to resolve issues effectively. When a customer calls with a complaint, it is important to remain calm.\nAlways apologize for the inconvenience and assure them that you will find a solution.\nFollowing up after the call ensures long-term customer satisfaction and loyalty.",
             "Effective time management allows individuals to achieve greater productivity and reduce workplace stress.\nStart your day by prioritizing tasks and creating a structured to-do list.\nAvoid multitasking as it can lead to errors and decrease overall focus.\nTaking short breaks between tasks helps maintain high energy levels."
         ];
 
-        // 2. MCQ QUESTIONS WITH 3 OPTIONS
         const MASTER_QUESTION_POOL = [
             { q: "Which is faster: a bicycle or a jet plane?", options: ["A bicycle", "A jet plane", "A car"], correctIndex: 1, expected: "A jet plane" },
             { q: "To keep ice cream cold, should you put it in the oven or the freezer?", options: ["The oven", "The freezer", "The microwave"], correctIndex: 1, expected: "The freezer" },
@@ -118,7 +116,6 @@
                     alert("Kripya candidate ka naam enter karein.");
                     return;
                 }
-                // Random Subject/Passage
                 setCurrentPassage(READING_PASSAGES[Math.floor(Math.random() * READING_PASSAGES.length)]);
                 setAssignedQuestions(getRandomItems(MASTER_QUESTION_POOL, 5));
                 setQaTranscripts(new Array(5).fill(""));
@@ -207,12 +204,12 @@
                     const pronunciation = Math.min(96, Math.max(30, Math.round(readingAccuracy * 0.85 + 10)));
                     const fluency = Math.min(95, Math.max(25, Math.round(readingAccuracy * 0.75 + (spokenWords.length > 12 ? 20 : 5))));
 
-                    // 2. MCQ Logic evaluation
+                    // 2. Logic MCQs Evaluation
                     let correctCount = 0;
                     const failedQuestionsList = [];
                     const breakdown = assignedQuestions.map((item, idx) => {
                         const rawAns = (qaTranscripts[idx] || "").toLowerCase().trim();
-                        const isMatch = selectedOptions[idx] === item.correctIndex; // Checking selected MCQ option
+                        const isMatch = selectedOptions[idx] === item.correctIndex;
                         
                         if (isMatch) {
                             correctCount++;
@@ -220,14 +217,14 @@
                             failedQuestionsList.push({
                                 qNum: idx + 1,
                                 question: item.q,
-                                agentSaid: selectedOptions[idx] !== null ? item.options[selectedOptions[idx]] : "Not Selected",
+                                agentSaid: selectedOptions[idx] !== null ? item.options[selectedOptions[idx]] : "None",
                                 expected: item.expected
                             });
                         }
                         return {
                             question: item.q,
                             candidateAnswer: selectedOptions[idx] !== null ? item.options[selectedOptions[idx]] : "Not Selected",
-                            transcript: rawAns,
+                            transcript: rawAns || "(No speech detected)",
                             isCorrect: isMatch,
                             expected: item.expected,
                             audio: qaAudioURLs[idx]
@@ -253,31 +250,34 @@
 
                     if (correctCount < 3) {
                         detailedMistakes.push({
-                            title: `MCQ Failure (${correctCount}/5 Correct)`,
-                            desc: `Agent ne context base MCQ questions ke galat options select kiye. Min 3 correct required the.`
+                            title: `Logic Questions me Failure (${correctCount}/5 Correct)`,
+                            desc: `Passing benchmark ke liye minimum 3 correct answers chahiye the.`
                         });
-                        aoiList.push("Improve listening comprehension and cognitive logic to select correct MCQ options.");
+                        aoiList.push("Improve context understanding to accurately select MCQ options.");
                     }
                     if (readingAccuracy < 60) {
                         detailedMistakes.push({
                             title: `Pronunciation & Missed Words (${readingAccuracy}% Match)`,
-                            desc: `Passage me ${missedWordsList.length} words miss ya mispronounce hue.`
+                            desc: `Passage padhte waqt ${missedWordsList.length} important words miss ya mispronounce huye.`
                         });
-                        aoiList.push("Focus on clear pronunciation and avoid skipping words while reading aloud.");
+                        aoiList.push("Focus on clearer pronunciation and avoid skipping text.");
                     }
                     if (fluency < 55) {
                         detailedMistakes.push({
                             title: "Fluency & Speech Rhythm Low",
-                            desc: "Recording ke waqt aawaz me hesitation aur pauses detect hue."
+                            desc: "Padhte waqt words ke beech lambe pauses ya hesitation detect hua."
                         });
-                        aoiList.push("Practice smooth reading without unnecessary stops or long pauses.");
+                        aoiList.push("Practice smooth reading to maintain a steady speaking rhythm.");
                     }
-                    if (aoiList.length === 0 && !isPassed) {
-                        aoiList.push("General overall communication skills need slight improvement to meet the 60% benchmark.");
+                    if (overallScore < 60 && detailedMistakes.length === 0) {
+                        detailedMistakes.push({
+                            title: "Overall Aggregate Benchmark Not Met",
+                            desc: `Total score ${overallScore}/100 raha, jabki passing benchmark 60/100 hai.`
+                        });
                     }
-                    if(isPassed) {
-                        aoiList.push("Maintain current accuracy, logical thinking, and voice clarity.");
-                    }
+
+                    if (isPassed) aoiList.push("Maintain current accuracy, logical thinking, and voice clarity.");
+                    if (aoiList.length === 0 && !isPassed) aoiList.push("General communication skills need improvement.");
 
                     setResult({
                         isPassed, overallScore, level, pronunciation, fluency, logicScore, vocabulary,
@@ -289,6 +289,24 @@
                     setStep(3);
                     setIsEvaluating(false);
                 }, 800);
+            };
+
+            const downloadCSV = () => {
+                const rows = [
+                    ["Candidate Name", agentName], ["Candidate ID", agentId || "N/A"], ["Test Date", result.timestamp],
+                    ["Status", result.isPassed ? "PASSED" : "FAILED"], ["Total Score", `${result.overallScore}/100`],
+                    ["Versant Grade", result.level], ["Pronunciation", `${result.pronunciation}%`],
+                    ["Fluency", `${result.fluency}%`], ["Logic Questions", `${result.correctCount}/5 Correct`],
+                    ["Reading Match", `${result.readingAccuracy}%`],
+                    ["Areas of Improvement (AOI)", result.aoiList.join(" | ")],
+                    ["Failure Details", result.isPassed ? "None" : result.detailedMistakes.map(m => m.title).join(" | ")]
+                ];
+                const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+                const link = document.createElement("a");
+                link.href = encodeURI(csvContent);
+                link.download = `${agentName.replace(/\s+/g, '_')}_Detailed_Report.csv`;
+                document.body.appendChild(link);
+                link.click();
             };
 
             const renderHighlightedPassage = () => {
@@ -346,7 +364,7 @@
                         )}
                     </div>
 
-                    {/* Step 0: Onboarding */}
+                    {/* Step 0 */}
                     {step === 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 sm:p-10">
                             <h2 className="text-2xl font-bold text-slate-900 mb-2">Candidate Verification</h2>
@@ -365,7 +383,7 @@
                         </div>
                     )}
 
-                    {/* Step 1: Reading Test */}
+                    {/* Step 1 */}
                     {step === 1 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
                             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
@@ -382,10 +400,10 @@
 
                             <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
                                 {!isRecording && !hasRecordedCurrent && (
-                                    <button onClick={startRecording} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-md">🎙️ Start Reading</button>
+                                    <button onClick={startRecording} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-md flex items-center gap-2">🎙️ Start Reading</button>
                                 )}
                                 {isRecording && (
-                                    <button onClick={stopRecording} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md">■ Stop Reading</button>
+                                    <button onClick={stopRecording} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md flex items-center gap-2">■ Stop Reading</button>
                                 )}
                                 {!isRecording && hasRecordedCurrent && (
                                     <button onClick={() => { setStep(2); setHasRecordedCurrent(false); }} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">Proceed to Logic Test →</button>
@@ -394,7 +412,7 @@
                         </div>
                     )}
 
-                    {/* Step 2: MCQ Options + Recording */}
+                    {/* Step 2 */}
                     {step === 2 && assignedQuestions.length > 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
                             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
@@ -407,7 +425,6 @@
 
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
                                 <p className="text-2xl font-bold text-slate-900 mb-4">{assignedQuestions[currentQIndex].q}</p>
-                                
                                 <div className="space-y-3">
                                     {assignedQuestions[currentQIndex].options.map((opt, i) => (
                                         <label key={i} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${selectedOptions[currentQIndex] === i ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-slate-300 hover:bg-slate-50'}`}>
@@ -433,41 +450,41 @@
                                     <button onClick={() => { setCurrentQIndex(prev => prev + 1); setHasRecordedCurrent(false); }} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">Next Question →</button>
                                 )}
                                 {!isRecording && hasRecordedCurrent && currentQIndex === 4 && (
-                                    <button onClick={calculateEvaluation} className="px-8 py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl transition shadow-md">
-                                        {isEvaluating ? "Analyzing..." : "Submit Test"}
-                                    </button>
+                                    <button onClick={calculateEvaluation} className="px-8 py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl transition shadow-md">{isEvaluating ? "Analyzing Performance..." : "Submit & Generate Report"}</button>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {/* Step 3: Result Dashboard (AOI & Failure Reason) */}
+                    {/* Step 3: Beautiful Dashboard with AOI, Failed Reasons & Audio Playback Audit */}
                     {step === 3 && result && (
                         <div className="space-y-6">
+                            {/* Summary Card */}
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                                <div className={`px-8 py-6 flex justify-between items-center ${result.isPassed ? "bg-emerald-600" : "bg-rose-600"} text-white`}>
+                                <div className={`px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${result.isPassed ? "bg-emerald-600" : "bg-rose-600"} text-white`}>
                                     <div>
                                         <h2 className="text-3xl font-black">{agentName}</h2>
-                                        <p className="text-sm font-medium opacity-90 mt-1">{result.timestamp} • {agentId}</p>
+                                        <p className="text-sm font-medium opacity-90 mt-1">{result.timestamp} • {agentId || "No ID"}</p>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-left sm:text-right">
                                         <div className="text-4xl font-black">{result.overallScore}<span className="text-xl opacity-80">/100</span></div>
-                                        <span className="inline-block mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider">{result.isPassed ? "PASSED" : "FAILED"}</span>
+                                        <span className="inline-block mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                            {result.isPassed ? "✓ ASSESSMENT PASSED" : "✕ ASSESSMENT FAILED"}
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div>
-                                        <h3 className="text-lg font-bold mb-4">Competency Scores</h3>
+                                        <h3 className="text-lg font-bold text-slate-900 mb-4">Competency Scores</h3>
                                         <ProgressBar label="Pronunciation" value={result.pronunciation} colorClass="bg-indigo-600" />
                                         <ProgressBar label="Fluency & Speed" value={result.fluency} colorClass="bg-blue-600" />
-                                        <ProgressBar label="MCQ Logic" value={result.logicScore} colorClass="bg-emerald-600" />
-                                        <ProgressBar label="Vocabulary" value={result.vocabulary} colorClass="bg-amber-600" />
+                                        <ProgressBar label="Logic MCQ Accuracy" value={result.logicScore} colorClass="bg-emerald-600" />
+                                        <ProgressBar label="Vocabulary Range" value={result.vocabulary} colorClass="bg-amber-600" />
                                     </div>
 
                                     <div>
-                                        {/* Areas of Improvement (AOI) */}
-                                        <h3 className="text-lg font-bold text-slate-900 mb-4">Areas of Improvement (AOI)</h3>
+                                        <h3 className="text-lg font-bold text-slate-900 mb-4">Areas of Improvement (AOI) & Verdict</h3>
                                         <ul className="list-disc pl-5 text-sm font-medium text-slate-700 space-y-2 mb-6">
                                             {result.aoiList.map((aoi, i) => (
                                                 <li key={i}>{aoi}</li>
@@ -475,45 +492,62 @@
                                         </ul>
 
                                         {result.isPassed ? (
-                                            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-medium">✅ <strong>Candidate Qualified.</strong> All benchmarks met.</div>
+                                            <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-medium">
+                                                ✅ <strong>Candidate Qualified:</strong> Agent ne pronunciation, reading speed aur logic questions ke sabhi benchmarks clear kar liye hain.
+                                            </div>
                                         ) : (
-                                            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm font-medium">⚠️ <strong>Candidate Disqualified.</strong> Please review the Mistake Audit below.</div>
+                                            <div className="p-5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm font-medium">
+                                                ⚠️ <strong>Candidate Disqualified:</strong> Minimum passing requirements match nahi huye. Niche diye gaye <strong>"Mistake Audit"</strong> section me check karein ki galti kahan hui thi.
+                                            </div>
                                         )}
-                                        <button onClick={() => window.location.reload()} className="w-full mt-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition">↻ Conduct New Test</button>
+                                        <button onClick={downloadCSV} className="w-full mt-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition text-sm flex items-center justify-center gap-2 shadow">
+                                            📥 Download Official Evaluation Report (CSV)
+                                        </button>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* EXACT MISTAKE AUDIT CARD */}
+                            {/* EXACT MISTAKE AUDIT CARD (Kaha Galti Hui Thi) */}
                             {!result.isPassed && (
                                 <div className="bg-white border-2 border-rose-200 rounded-2xl shadow-sm p-6 sm:p-8">
                                     <div className="flex items-center gap-2 mb-4 pb-3 border-b border-rose-100">
                                         <span className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-lg">⚠️</span>
                                         <div>
-                                            <h3 className="text-lg font-bold text-slate-900">Failed Reason (Galti Kahan Hui Thi)</h3>
-                                            <p className="text-xs text-slate-500">Mukhya kaaran kyu agent fail hua:</p>
+                                            <h3 className="text-lg font-bold text-slate-900">Mistake Diagnostics (Galti Kahan Hui Thi)</h3>
+                                            <p className="text-xs text-slate-500">Fail hone ke mukhya kaaran aur candidate ki galtiyan:</p>
                                         </div>
                                     </div>
+
                                     <div className="space-y-3 mb-6">
                                         {result.detailedMistakes.map((item, idx) => (
-                                            <div key={idx} className="p-4 rounded-xl bg-rose-50 border border-rose-200">
+                                            <div key={idx} className="p-4 rounded-xl bg-rose-50/70 border border-rose-200">
                                                 <p className="text-sm font-bold text-rose-900">{idx + 1}. {item.title}</p>
                                                 <p className="text-xs text-rose-700 mt-1 font-medium">{item.desc}</p>
                                             </div>
                                         ))}
                                     </div>
-                                    
-                                    {/* MCQ Failed Data */}
-                                    {result.failedQuestionsList.length > 0 && (
-                                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 mt-4">
-                                            <p className="text-xs font-bold uppercase text-slate-600 mb-3">Galat MCQ Options Select Kiye Gaye:</p>
+
+                                    {result.missedWordsList && result.missedWordsList.length > 0 && (
+                                        <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                            <p className="text-xs font-bold uppercase text-slate-600 mb-2">Reading Passage me Miss / Mispronounced Words ({result.missedWordsList.length}):</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {result.missedWordsList.map((word, wIdx) => (
+                                                    <span key={wIdx} className="px-2.5 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-md text-xs font-bold">{word}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {result.failedQuestionsList && result.failedQuestionsList.length > 0 && (
+                                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                            <p className="text-xs font-bold uppercase text-slate-600 mb-3">Galat Options Select Kiye Gaye Questions ({result.failedQuestionsList.length}):</p>
                                             <div className="space-y-3">
                                                 {result.failedQuestionsList.map((item, fIdx) => (
                                                     <div key={fIdx} className="p-3 bg-white rounded-lg border border-slate-200 text-xs">
                                                         <p className="font-bold text-slate-800">Q{item.qNum}: {item.question}</p>
                                                         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                            <div className="text-rose-700 font-medium">Selected: "{item.agentSaid}"</div>
-                                                            <div className="text-emerald-700 font-medium">Expected: {item.expected}</div>
+                                                            <div className="text-rose-700 font-medium"><span className="font-bold">Agent selected:</span> "{item.agentSaid}"</div>
+                                                            <div className="text-emerald-700 font-medium"><span className="font-bold">Correct ans:</span> {item.expected}</div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -522,6 +556,52 @@
                                     )}
                                 </div>
                             )}
+
+                            {/* Full Audio Playback Audit (Restored Original Section) */}
+                            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 pb-3 border-b border-slate-100">Live Recording & Audio Playback</h3>
+                                
+                                <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+                                        <div>
+                                            <p className="text-sm font-bold text-indigo-700">Part 1: Reading Recording Audit</p>
+                                            <p className="text-xs text-slate-500">Passage Accuracy: {result.readingAccuracy}%</p>
+                                        </div>
+                                        {readingAudioURL && <audio controls src={readingAudioURL} className="h-8 w-full sm:w-64" />}
+                                    </div>
+                                    <div className="p-4 bg-white border border-slate-200 rounded-lg text-sm font-medium leading-relaxed">
+                                        {renderHighlightedPassage()}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <p className="text-sm font-bold text-indigo-700">Part 2: 5 Logic Questions Audio Breakdown</p>
+                                    {result.breakdown.map((item, idx) => (
+                                        <div key={idx} className="p-4 bg-white border border-slate-200 rounded-xl">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <p className="text-sm font-bold text-slate-800">Q{idx + 1}: {item.question}</p>
+                                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${item.isCorrect ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                                                    {item.isCorrect ? "Correct" : "Incorrect"}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs mt-3 bg-slate-50 p-3 rounded-lg">
+                                                <div>
+                                                    <p><span className="text-slate-500 font-bold">Selected Option:</span> <span className="italic font-medium text-slate-800">"{item.candidateAnswer}"</span></p>
+                                                    <p className="mt-1"><span className="text-slate-500 font-bold">Spoken Transcript:</span> <span className="italic font-medium text-slate-700">"{item.transcript}"</span></p>
+                                                    <p className="mt-1"><span className="text-slate-500 font-bold">Expected:</span> <span className="font-semibold text-slate-800">{item.expected}</span></p>
+                                                </div>
+                                                {item.audio && <audio controls src={item.audio} className="h-8 w-full sm:w-52" />}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="text-center pb-8">
+                                <button onClick={() => window.location.reload()} className="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm rounded-xl transition">
+                                    ↻ Conduct Test for New Agent
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
