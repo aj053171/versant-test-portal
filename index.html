@@ -28,10 +28,13 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
+        // UPDATED: 5-Line Reading Passages
         const READING_PASSAGES = [
-            "Welcome to the customer support line. Our technical team is available twenty-four hours a day to diagnose and resolve your internet issues.\nPlease check that the main power adapter is tightly connected to your wireless modem.\nVerify that the network signal light remains solid green and is not blinking red or amber.",
-            "Customer service requires active listening and empathy to resolve issues effectively. When a customer calls with a complaint, it is important to remain calm.\nAlways apologize for the inconvenience and assure them that you will find a solution.\nFollowing up after the call ensures long-term customer satisfaction and loyalty.",
-            "Effective time management allows individuals to achieve greater productivity and reduce workplace stress.\nStart your day by prioritizing tasks and creating a structured to-do list.\nAvoid multitasking as it can lead to errors and decrease overall focus.\nTaking short breaks between tasks helps maintain high energy levels."
+            "Welcome to the customer support line. Our technical team is available twenty-four hours a day to diagnose and resolve your internet issues.\nPlease check that the main power adapter is tightly connected to your wireless modem.\nVerify that the network signal light remains solid green and is not blinking red or amber.\nIf the problem persists, we will generate a troubleshooting ticket to ensure a technician is dispatched to your location.\nThank you for your patience and for choosing our premium broadband services today.",
+            
+            "Customer service requires active listening and empathy to resolve issues effectively. When a customer calls with a complaint, it is important to remain calm and attentive.\nAlways apologize for the inconvenience and assure them that you will find a prompt solution.\nTaking detailed notes during the call will help in providing accurate and personalized support.\nFinally, following up after the call ensures long-term customer satisfaction and builds lasting brand loyalty.",
+            
+            "Effective time management allows individuals to achieve greater productivity and reduce workplace stress.\nStart your day by prioritizing tasks and creating a structured to-do list for better organization.\nAvoid multitasking as it can lead to errors and decrease overall focus on important projects.\nTaking short, regular breaks between heavy tasks helps maintain high energy and concentration levels.\nBy sticking to this organized schedule, you can ensure a healthy work-life balance and long-term success."
         ];
 
         const MASTER_QUESTION_POOL = [
@@ -167,13 +170,11 @@
             const calculateEvaluation = () => {
                 setIsEvaluating(true);
                 
-                // Wrap in try-catch to prevent loading infinite loop if error occurs
                 setTimeout(() => {
                     try {
                         const expectedWordsRaw = currentPassage.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
                         const spokenWords = readingTranscript.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
                         
-                        // Fair Algorithm: Balance Sequence & Word Matching
                         let matchCount = 0;
                         let searchIndex = 0;
                         const missedWordsList = [];
@@ -195,31 +196,51 @@
 
                         const sequentialAccuracy = expectedWordsRaw.length > 0 ? (matchCount / expectedWordsRaw.length) : 0;
                         
-                        // WPM (Words Per Minute) Calculation for Fluency
+                        // WPM (Words Per Minute)
                         const durationSec = recordingDurationRef.current > 0 ? recordingDurationRef.current : 1;
                         const wpm = (spokenWords.length / durationSec) * 60;
                         
-                        // Fair Fluency calculation
                         let fluScore = 80;
-                        if (wpm < 90) fluScore -= (90 - wpm) * 0.5; // Mild penalty for slow
-                        if (wpm > 170) fluScore -= (wpm - 170) * 0.5; // Mild penalty for rushing
-                        fluScore = Math.max(20, Math.min(80, Math.round(fluScore)));
+                        if (wpm < 90) fluScore -= (90 - wpm) * 0.5;
+                        if (wpm > 170) fluScore -= (wpm - 170) * 0.5; 
+                        fluScore = Math.max(10, Math.min(80, Math.round(fluScore)));
 
-                        const smScore = Math.max(20, Math.min(80, Math.round((sequentialAccuracy * 60) + 20))); 
-                        const proScore = Math.max(20, Math.min(80, Math.round((sequentialAccuracy * 50) + (fluScore * 0.2) + 10)));
-                        const vocScore = Math.max(20, Math.min(80, Math.round(((1 - (missedWordsList.length / expectedWordsRaw.length)) * 60) + 20)));
+                        const smScore = Math.max(10, Math.min(80, Math.round((sequentialAccuracy * 70) + 10))); 
+                        const proScore = Math.max(10, Math.min(80, Math.round((sequentialAccuracy * 50) + (fluScore * 0.2) + 14)));
+                        const vocScore = Math.max(10, Math.min(80, Math.round(((1 - (missedWordsList.length / expectedWordsRaw.length)) * 70) + 10)));
 
-                        // Overall Versant Score Formula
+                        // Overall Versant Score
                         const versantScore = Math.round((0.3 * smScore) + (0.2 * vocScore) + (0.3 * fluScore) + (0.2 * proScore));
 
-                        // Grade Badge Logic
-                        let level = "Pre-Elementary";
-                        let versantBadge = "V1";
-                        if (versantScore >= 69) { level = "Native Mastery"; versantBadge = "V6"; }
-                        else if (versantScore >= 58) { level = "Advanced Business"; versantBadge = "V5"; }
-                        else if (versantScore >= 47) { level = "Proficient"; versantBadge = "V4"; }
-                        else if (versantScore >= 36) { level = "Intermediate"; versantBadge = "V3"; }
-                        else if (versantScore >= 26) { level = "Basic"; versantBadge = "V2"; }
+                        // -------------------------------------------------------------
+                        // UPDATED NEW V1-V5 CLASSIFICATION, CEFR & ACCOUNT PLACEMENT
+                        // -------------------------------------------------------------
+                        let level = "", cefr = "", eligibility = "", versantBadge = "";
+                        let isVoicePassed = false;
+                        let isNonVoice = false;
+
+                        if (versantScore >= 76) {
+                            versantBadge = "V5"; level = "Expert"; cefr = "C2";
+                            eligibility = "Elite Hiring: Passed for high-level corporate training, operational leadership, international client relations, and specialized technical analysis.";
+                            isVoicePassed = true;
+                        } else if (versantScore >= 67) {
+                            versantBadge = "V4"; level = "Advanced"; cefr = "C1";
+                            eligibility = "Premium Voice: Passed for high-tier US/UK enterprise accounts, premium banking operations, QA compliance, and complex troubleshooting.";
+                            isVoicePassed = true;
+                        } else if (versantScore >= 59) {
+                            versantBadge = "V3"; level = "Voice Eligible"; cefr = "B2";
+                            eligibility = "Standard Voice: Passed for international customer service voice processes, inbound technical helpdesks, and outbound tele-sales.";
+                            isVoicePassed = true;
+                        } else if (versantScore >= 51) {
+                            versantBadge = "V2"; level = "Non-Voice Only"; cefr = "B1";
+                            eligibility = "Non-Voice Only: Redirected away from international voice lines. Fully eligible for digital chat support, international email ticketing systems, and back-office operations.";
+                            isVoicePassed = false; 
+                            isNonVoice = true; // Soft pass
+                        } else {
+                            versantBadge = "V1"; level = "Below Benchmark"; cefr = "A1 - A2";
+                            eligibility = "Domestic / Not Eligible: Passed only for domestic queues or internal administration. Upskill cooling-off period required.";
+                            isVoicePassed = false;
+                        }
 
                         // Logic MCQ Test
                         let correctCount = 0;
@@ -229,34 +250,32 @@
                             if (isMatch) correctCount++;
                             else {
                                 failedQuestionsList.push({
-                                    qNum: idx + 1,
-                                    question: item.q,
-                                    agentSaid: selectedOptions[idx] !== null ? item.options[selectedOptions[idx]] : "Not Selected",
-                                    expected: item.expected
+                                    qNum: idx + 1, question: item.q, agentSaid: selectedOptions[idx] !== null ? item.options[selectedOptions[idx]] : "Not Selected", expected: item.expected
                                 });
                             }
                             return { question: item.q, candidateAnswer: selectedOptions[idx] !== null ? item.options[selectedOptions[idx]] : "Not Selected", isCorrect: isMatch, expected: item.expected };
                         });
 
-                        // PASS criteria: V4+ (47+ Score) AND 3+ MCQ
-                        const isPassed = versantScore >= 47 && correctCount >= 3;
+                        // FINAL LOGIC (Agent must get >=3 Logic MCQ and at least V2 to be useful, V3+ for voice)
+                        const finalPassedStatus = (isVoicePassed || isNonVoice) && correctCount >= 3;
                         
                         const detailedMistakes = [];
                         let aoiList = [];
 
-                        if (versantScore < 47) {
-                            detailedMistakes.push({ title: `Versant Speech Benchmark Missed (Score: ${versantScore}/80)`, desc: `Agent's communication did not meet the V4 (Proficient) benchmark.` });
-                            aoiList.push("Improve Sentence Mastery by reading text confidently and continuously.");
+                        if (!isVoicePassed && !isNonVoice) {
+                            detailedMistakes.push({ title: `Below V2 Benchmark (Score: ${versantScore}/80)`, desc: `Voice quality is not suitable for international processes.` });
+                            aoiList.push("Needs significant training in pronunciation and reading comprehension.");
                         }
                         if (correctCount < 3) {
-                            detailedMistakes.push({ title: `Cognitive Logic Failure (${correctCount}/5)`, desc: `Agent failed context-based MCQ logic.` });
+                            detailedMistakes.push({ title: `Cognitive Logic Failure (${correctCount}/5)`, desc: `Agent failed context-based MCQ logic. Minimum 3 correct required.` });
                             aoiList.push("Improve cognitive logic to accurately select contextually correct choices.");
                         }
 
-                        if (isPassed) aoiList.push("Maintain current speaking fluency, sentence mastery, and logical accuracy.");
+                        if (finalPassedStatus && isVoicePassed) aoiList.push("Maintain current speaking fluency, sentence mastery, and logical accuracy.");
+                        else if (finalPassedStatus && isNonVoice) aoiList.push("Good logic, but work on speaking fluency to upgrade to a Voice profile.");
 
                         setResult({
-                            isPassed, versantScore, level, versantBadge, 
+                            finalPassedStatus, isVoicePassed, isNonVoice, versantScore, level, versantBadge, cefr, eligibility,
                             sm: smScore, voc: vocScore, flu: fluScore, pro: proScore, wpm: Math.round(wpm),
                             correctCount, missedWordsList, failedQuestionsList,
                             detailedMistakes, breakdown, aoiList,
@@ -266,7 +285,7 @@
                         setStep(3);
                     } catch (error) {
                         console.error("Evaluation Error:", error);
-                        alert("Kuch error aagaya hai evaluation me. Kripya page refresh karein.");
+                        alert("Error generating report. Please retry.");
                     } finally {
                         setIsEvaluating(false);
                     }
@@ -280,11 +299,15 @@
                     ["Candidate Name", agentName], 
                     ["Candidate ID", agentId || "N/A"], 
                     ["Test Date & Time", result.timestamp],
-                    ["Final Status", result.isPassed ? "PASSED (Qualified)" : "FAILED (Disqualified)"], 
+                    ["Overall Result", result.finalPassedStatus ? (result.isVoicePassed ? "PASSED (Voice Profile)" : "PASSED (Non-Voice Profile)") : "FAILED"], 
                     [],
-                    ["--- AI SPEECH METRICS (Scale 20 - 80) ---"],
+                    ["--- AI SPEECH METRICS (Scale 10 - 80) ---"],
                     ["Overall Versant Score", result.versantScore],
-                    ["AI Versant Grade Badge", `${result.versantBadge} - ${result.level}`], 
+                    ["Versant Grade Badge", result.versantBadge], 
+                    ["Communication Tier", result.level],
+                    ["CEFR Level", result.cefr],
+                    ["Agent Hiring Eligibility", result.eligibility],
+                    [],
                     ["Calculated WPM (Speed)", `${result.wpm} Words per Minute`],
                     ["Sentence Mastery", result.sm], 
                     ["Fluency", result.flu], 
@@ -296,12 +319,12 @@
                     [],
                     ["--- AUDIT & FEEDBACK ---"],
                     ["Areas of Improvement (AOI)", result.aoiList.join(" | ")],
-                    ["Failure Details", result.isPassed ? "None. Outstanding Performance." : result.detailedMistakes.map(m => m.title).join(" | ")]
+                    ["Failure Details", result.finalPassedStatus ? "None." : result.detailedMistakes.map(m => m.title).join(" | ")]
                 ];
                 const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
                 const link = document.createElement("a");
                 link.href = encodeURI(csvContent);
-                link.download = `${agentName.replace(/\s+/g, '_')}_Versant_Excel_Report.csv`;
+                link.download = `${agentName.replace(/\s+/g, '_')}_Versant_Report.csv`;
                 document.body.appendChild(link);
                 link.click();
             };
@@ -325,7 +348,7 @@
                             <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/25">V</div>
                             <div>
                                 <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">AI Versant Diagnostic Portal</h1>
-                                <p className="text-xs font-semibold text-slate-500">Automated Voice & Error Analysis Engine</p>
+                                <p className="text-xs font-semibold text-slate-500">Automated CEFR Voice & Error Analysis Engine</p>
                             </div>
                         </div>
                         {isRecording && (
@@ -339,7 +362,7 @@
                     {step === 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 sm:p-10">
                             <h2 className="text-2xl font-bold text-slate-900 mb-2">Candidate Verification</h2>
-                            <p className="text-slate-500 text-sm mb-8 font-medium">Candidate ka naam enter karein. Har candidate ko naya random reading passage aur questions milenge.</p>
+                            <p className="text-slate-500 text-sm mb-8 font-medium">Candidate ka naam enter karein. AI Engine automatically CEFR level (A1 to C2) aur Hiring Eligibility generate karega.</p>
                             <div className="space-y-4 max-w-md mb-8">
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Candidate Full Name *</label>
@@ -360,7 +383,7 @@
                                 <div>
                                     <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider">Part 1 of 2</span>
                                     <h2 className="text-2xl font-bold text-slate-900 mt-1">Reading Fluency Assessment</h2>
-                                    <p className="text-xs font-semibold text-slate-500 mt-1">Record button dabayein aur saaf aawaz me passage padhein.</p>
+                                    <p className="text-xs font-semibold text-slate-500 mt-1">Record button dabayein aur 5 line ka passage natural speed me padhein.</p>
                                 </div>
                             </div>
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-lg leading-relaxed whitespace-pre-line mb-6 font-medium text-slate-800">
@@ -405,7 +428,7 @@
                                 {currentQIndex < 4 ? (
                                     <button onClick={() => setCurrentQIndex(prev => prev + 1)} disabled={selectedOptions[currentQIndex] === null} className={`px-6 py-3 font-bold rounded-xl transition shadow-md ${selectedOptions[currentQIndex] === null ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>Next Question →</button>
                                 ) : (
-                                    <button onClick={calculateEvaluation} disabled={selectedOptions[currentQIndex] === null} className={`px-8 py-3 font-bold rounded-xl transition shadow-md ${selectedOptions[currentQIndex] === null ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-black text-white'}`}>{isEvaluating ? "Analyzing Versant Metrics..." : "Submit & Generate Report"}</button>
+                                    <button onClick={calculateEvaluation} disabled={selectedOptions[currentQIndex] === null} className={`px-8 py-3 font-bold rounded-xl transition shadow-md ${selectedOptions[currentQIndex] === null ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-black text-white'}`}>{isEvaluating ? "Analyzing Versant Logic..." : "Submit & Generate Report"}</button>
                                 )}
                             </div>
                         </div>
@@ -414,7 +437,7 @@
                     {step === 3 && result && (
                         <div className="space-y-6">
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                                <div className={`px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${result.isPassed ? "bg-emerald-600" : "bg-rose-600"} text-white`}>
+                                <div className={`px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${result.finalPassedStatus ? (result.isVoicePassed ? "bg-emerald-600" : "bg-blue-600") : "bg-rose-600"} text-white`}>
                                     <div>
                                         <h2 className="text-3xl font-black">{agentName}</h2>
                                         <p className="text-sm font-medium opacity-90 mt-1">{result.timestamp} • {agentId || "No ID"}</p>
@@ -424,7 +447,7 @@
                                         <p className="text-xs uppercase font-bold tracking-wider opacity-90">Versant Speaking Score</p>
                                         <div className="flex gap-2 mt-3 justify-start sm:justify-end flex-wrap">
                                             <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                                {result.isPassed ? "✓ OVERALL PASSED" : "✕ FAILED"}
+                                                {result.finalPassedStatus ? (result.isVoicePassed ? "✓ VOICE QUALIFIED" : "✓ NON-VOICE QUALIFIED") : "✕ FAILED / DOMESTIC"}
                                             </span>
                                         </div>
                                     </div>
@@ -432,8 +455,8 @@
 
                                 <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div>
-                                        <h3 className="text-lg font-bold text-slate-900 mb-1">AI Speech Metrics</h3>
-                                        <p className="text-xs text-slate-500 mb-4 font-semibold">Scale: 20-80 (Fair Evaluation Algorithm)</p>
+                                        <h3 className="text-lg font-bold text-slate-900 mb-1">AI Speech Metrics (CEFR Algorithm)</h3>
+                                        <p className="text-xs text-slate-500 mb-4 font-semibold">Scale: 10-80</p>
                                         <ProgressBar label={`Sentence Mastery`} value={result.sm} colorClass="bg-indigo-600" />
                                         <ProgressBar label={`Fluency (Pacing)`} value={result.flu} colorClass="bg-blue-600" />
                                         <ProgressBar label={`Pronunciation`} value={result.pro} colorClass="bg-amber-500" />
@@ -441,8 +464,8 @@
                                         
                                         <div className="mt-5 p-4 border border-slate-200 rounded-xl bg-slate-50 flex items-center justify-between">
                                             <div>
-                                                <span className="text-sm font-bold text-slate-700 block">Logic MCQ Test</span>
-                                                <span className="text-xs text-slate-500 font-medium">Cognitive Context Score</span>
+                                                <span className="text-sm font-bold text-slate-700 block">Logic MCQ Score</span>
+                                                <span className="text-xs text-slate-500 font-medium">Cognitive Logic Check</span>
                                             </div>
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${result.correctCount >= 3 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                                                 {result.correctCount} / 5 Correct
@@ -451,37 +474,36 @@
                                     </div>
 
                                     <div>
-                                        <div className="mb-5 p-4 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between shadow-inner">
-                                            <div>
-                                                <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Final Versant Badge</h4>
-                                                <p className="text-xl font-bold text-indigo-900">{result.level}</p>
+                                        {/* Updated Account Placement Banner */}
+                                        <div className="mb-5 p-5 rounded-xl bg-indigo-50 border border-indigo-200 shadow-sm relative overflow-hidden">
+                                            <div className="flex justify-between items-start mb-3 relative z-10">
+                                                <div>
+                                                    <span className="px-2.5 py-0.5 bg-indigo-200 text-indigo-800 text-[10px] font-black uppercase rounded tracking-wider">CEFR: {result.cefr}</span>
+                                                    <h4 className="text-xl font-bold text-indigo-900 mt-1.5">{result.level}</h4>
+                                                </div>
+                                                <div className="w-14 h-14 bg-indigo-600 text-white rounded-full flex items-center justify-center text-2xl font-black shadow-lg">
+                                                    {result.versantBadge}
+                                                </div>
                                             </div>
-                                            <div className="w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center text-3xl font-black shadow-lg border-4 border-indigo-200">
-                                                {result.versantBadge}
+                                            <div className="relative z-10 p-3 bg-white/70 rounded-lg text-xs font-semibold text-indigo-800 leading-relaxed border border-indigo-100">
+                                                {result.eligibility}
                                             </div>
                                         </div>
 
-                                        <h3 className="text-lg font-bold text-slate-900 mb-3">Areas of Improvement (AOI)</h3>
-                                        <ul className="list-disc pl-5 text-sm font-medium text-slate-700 space-y-2 mb-6">
-                                            {result.aoiList.map((aoi, i) => (
-                                                <li key={i}>{aoi}</li>
-                                            ))}
-                                        </ul>
-
-                                        <button onClick={downloadExcelCSV} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-sm flex items-center justify-center gap-2 shadow-lg">
-                                            📊 Download Official Excel / CSV Report
+                                        <button onClick={downloadExcelCSV} className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition text-sm flex items-center justify-center gap-2 shadow">
+                                            📥 Download Official Report (CSV)
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            {!result.isPassed && (
+                            {!result.finalPassedStatus && (
                                 <div className="bg-white border-2 border-rose-200 rounded-2xl shadow-sm p-6 sm:p-8">
                                     <div className="flex items-center gap-2 mb-4 pb-3 border-b border-rose-100">
                                         <span className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-lg">⚠️</span>
                                         <div>
                                             <h3 className="text-lg font-bold text-slate-900">Failure Diagnostics</h3>
-                                            <p className="text-xs text-slate-500">Reasons why the AI Engine failed the candidate:</p>
+                                            <p className="text-xs text-slate-500">Reasons for Domestic routing / Disqualification:</p>
                                         </div>
                                     </div>
                                     <div className="space-y-3">
@@ -501,14 +523,14 @@
                                 <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
                                         <div>
-                                            <p className="text-sm font-bold text-indigo-700">Reading Speed / Pacing Metrics</p>
-                                            <p className="text-xs text-slate-600 mt-1">Agent Reading Speed: <strong>{result.wpm} Words per minute</strong> (Target: 100-160 WPM)</p>
+                                            <p className="text-sm font-bold text-indigo-700">Reading Speed & Pacing</p>
+                                            <p className="text-xs text-slate-600 mt-1">Agent Reading Speed: <strong>{result.wpm} Words per minute</strong></p>
                                         </div>
                                         {readingAudioURL && <audio controls src={readingAudioURL} className="h-8 w-full sm:w-64" />}
                                     </div>
                                     {result.missedWordsList && result.missedWordsList.length > 0 && (
                                         <div className="mt-4 pt-4 border-t border-slate-200">
-                                            <p className="text-xs font-bold uppercase text-slate-600 mb-2">Sequence Errors / Missed Words:</p>
+                                            <p className="text-xs font-bold uppercase text-slate-600 mb-2">Missed or Mispronounced Words:</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {result.missedWordsList.map((word, wIdx) => (
                                                     <span key={wIdx} className="px-2.5 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-md text-xs font-bold">{word}</span>
