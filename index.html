@@ -72,9 +72,6 @@
             const [isRecording, setIsRecording] = useState(false);
             const [readingTranscript, setReadingTranscript] = useState("");
             const [readingAudioURL, setReadingAudioURL] = useState(null);
-
-            const [qaTranscripts, setQaTranscripts] = useState([]);
-            const [qaAudioURLs, setQaAudioURLs] = useState([]);
             const [hasRecordedCurrent, setHasRecordedCurrent] = useState(false);
 
             const [result, setResult] = useState(null);
@@ -98,18 +95,13 @@
                                 text += event.results[i][0].transcript + ' ';
                             }
                         }
+                        // Only capture speech during step 1 (Reading)
                         if (step === 1) {
                             setReadingTranscript(prev => prev + text);
-                        } else if (step === 2) {
-                            setQaTranscripts(prev => {
-                                const next = [...prev];
-                                next[currentQIndex] = (next[currentQIndex] || "") + text;
-                                return next;
-                            });
                         }
                     };
                 }
-            }, [step, currentQIndex]);
+            }, [step]);
 
             const handleStartTest = () => {
                 if (!agentName.trim()) {
@@ -118,8 +110,6 @@
                 }
                 setCurrentPassage(READING_PASSAGES[Math.floor(Math.random() * READING_PASSAGES.length)]);
                 setAssignedQuestions(getRandomItems(MASTER_QUESTION_POOL, 5));
-                setQaTranscripts(new Array(5).fill(""));
-                setQaAudioURLs(new Array(5).fill(null));
                 setSelectedOptions(new Array(5).fill(null));
                 setCurrentQIndex(0);
                 setReadingTranscript("");
@@ -143,12 +133,6 @@
                         const audioUrl = URL.createObjectURL(audioBlob);
                         if (step === 1) {
                             setReadingAudioURL(audioUrl);
-                        } else if (step === 2) {
-                            setQaAudioURLs(prev => {
-                                const copy = [...prev];
-                                copy[currentQIndex] = audioUrl;
-                                return copy;
-                            });
                         }
                     };
 
@@ -158,7 +142,7 @@
                     }
                     setIsRecording(true);
                 } catch (err) {
-                    alert("Microphone permission denied! Kripya browser me microphone allow karein.");
+                    alert("Microphone permission denied! Kripya browser me allow karein.");
                 }
             };
 
@@ -191,29 +175,22 @@
                     const missedWordsList = [];
 
                     expectedWordsRaw.forEach(word => {
-                        if (spokenWordSet.has(word)) {
-                            matchedCount++;
-                        } else {
-                            if (word.length > 2 && !missedWordsList.includes(word)) {
-                                missedWordsList.push(word);
-                            }
-                        }
+                        if (spokenWordSet.has(word)) matchedCount++;
+                        else if (word.length > 2 && !missedWordsList.includes(word)) missedWordsList.push(word);
                     });
 
                     const readingAccuracy = expectedWordsRaw.length > 0 ? Math.round((matchedCount / expectedWordsRaw.length) * 100) : 0;
                     const pronunciation = Math.min(96, Math.max(30, Math.round(readingAccuracy * 0.85 + 10)));
                     const fluency = Math.min(95, Math.max(25, Math.round(readingAccuracy * 0.75 + (spokenWords.length > 12 ? 20 : 5))));
 
-                    // 2. Logic MCQs Evaluation
+                    // 2. Logic MCQs Evaluation (No Audio mapping required here)
                     let correctCount = 0;
                     const failedQuestionsList = [];
                     const breakdown = assignedQuestions.map((item, idx) => {
-                        const rawAns = (qaTranscripts[idx] || "").toLowerCase().trim();
                         const isMatch = selectedOptions[idx] === item.correctIndex;
                         
-                        if (isMatch) {
-                            correctCount++;
-                        } else {
+                        if (isMatch) correctCount++;
+                        else {
                             failedQuestionsList.push({
                                 qNum: idx + 1,
                                 question: item.q,
@@ -224,23 +201,24 @@
                         return {
                             question: item.q,
                             candidateAnswer: selectedOptions[idx] !== null ? item.options[selectedOptions[idx]] : "Not Selected",
-                            transcript: rawAns || "(No speech detected)",
                             isCorrect: isMatch,
-                            expected: item.expected,
-                            audio: qaAudioURLs[idx]
+                            expected: item.expected
                         };
                     });
 
                     const logicScore = Math.round((correctCount / 5) * 100);
                     const vocabulary = Math.min(98, Math.max(35, Math.round(logicScore * 0.65 + readingAccuracy * 0.35)));
+                    
+                    // Versant Overall Score & Grade System (AI Identified)
                     const overallScore = Math.round((pronunciation * 0.3) + (fluency * 0.25) + (logicScore * 0.3) + (vocabulary * 0.15));
 
                     let level = "V1 (Pre-Elementary)";
-                    if (overallScore >= 85) level = "V6 (Native Mastery)";
-                    else if (overallScore >= 75) level = "V5 (Advanced Business)";
-                    else if (overallScore >= 65) level = "V4 (Proficient)";
-                    else if (overallScore >= 55) level = "V3 (Intermediate)";
-                    else if (overallScore >= 45) level = "V2 (Basic)";
+                    let versantBadge = "V1";
+                    if (overallScore >= 85) { level = "Native Mastery"; versantBadge = "V6"; }
+                    else if (overallScore >= 75) { level = "Advanced Business"; versantBadge = "V5"; }
+                    else if (overallScore >= 65) { level = "Proficient"; versantBadge = "V4"; }
+                    else if (overallScore >= 55) { level = "Intermediate"; versantBadge = "V3"; }
+                    else if (overallScore >= 45) { level = "Basic"; versantBadge = "V2"; }
 
                     const isPassed = overallScore >= 60 && correctCount >= 3 && readingAccuracy >= 50;
                     
@@ -249,38 +227,26 @@
                     let aoiList = [];
 
                     if (correctCount < 3) {
-                        detailedMistakes.push({
-                            title: `Logic Questions me Failure (${correctCount}/5 Correct)`,
-                            desc: `Passing benchmark ke liye minimum 3 correct answers chahiye the.`
-                        });
+                        detailedMistakes.push({ title: `Logic Failure (${correctCount}/5 Correct)`, desc: `Min 3 correct logic MCQ required.` });
                         aoiList.push("Improve context understanding to accurately select MCQ options.");
                     }
                     if (readingAccuracy < 60) {
-                        detailedMistakes.push({
-                            title: `Pronunciation & Missed Words (${readingAccuracy}% Match)`,
-                            desc: `Passage padhte waqt ${missedWordsList.length} important words miss ya mispronounce huye.`
-                        });
+                        detailedMistakes.push({ title: `Pronunciation & Missed Words (${readingAccuracy}% Match)`, desc: `Passage padhte waqt ${missedWordsList.length} important words miss hue.` });
                         aoiList.push("Focus on clearer pronunciation and avoid skipping text.");
                     }
                     if (fluency < 55) {
-                        detailedMistakes.push({
-                            title: "Fluency & Speech Rhythm Low",
-                            desc: "Padhte waqt words ke beech lambe pauses ya hesitation detect hua."
-                        });
+                        detailedMistakes.push({ title: "Fluency & Speech Rhythm Low", desc: "Lambe pauses ya hesitation detect hua." });
                         aoiList.push("Practice smooth reading to maintain a steady speaking rhythm.");
                     }
                     if (overallScore < 60 && detailedMistakes.length === 0) {
-                        detailedMistakes.push({
-                            title: "Overall Aggregate Benchmark Not Met",
-                            desc: `Total score ${overallScore}/100 raha, jabki passing benchmark 60/100 hai.`
-                        });
+                        detailedMistakes.push({ title: "Aggregate Score Not Met", desc: `Total score ${overallScore}/100 raha, minimum 60 required hai.` });
                     }
 
                     if (isPassed) aoiList.push("Maintain current accuracy, logical thinking, and voice clarity.");
                     if (aoiList.length === 0 && !isPassed) aoiList.push("General communication skills need improvement.");
 
                     setResult({
-                        isPassed, overallScore, level, pronunciation, fluency, logicScore, vocabulary,
+                        isPassed, overallScore, level, versantBadge, pronunciation, fluency, logicScore, vocabulary,
                         readingAccuracy, correctCount, missedWordsList, failedQuestionsList,
                         detailedMistakes, breakdown, aoiList,
                         timestamp: new Date().toLocaleString()
@@ -295,7 +261,7 @@
                 const rows = [
                     ["Candidate Name", agentName], ["Candidate ID", agentId || "N/A"], ["Test Date", result.timestamp],
                     ["Status", result.isPassed ? "PASSED" : "FAILED"], ["Total Score", `${result.overallScore}/100`],
-                    ["Versant Grade", result.level], ["Pronunciation", `${result.pronunciation}%`],
+                    ["AI Versant Grade", `${result.versantBadge} - ${result.level}`], ["Pronunciation", `${result.pronunciation}%`],
                     ["Fluency", `${result.fluency}%`], ["Logic Questions", `${result.correctCount}/5 Correct`],
                     ["Reading Match", `${result.readingAccuracy}%`],
                     ["Areas of Improvement (AOI)", result.aoiList.join(" | ")],
@@ -304,7 +270,7 @@
                 const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
                 const link = document.createElement("a");
                 link.href = encodeURI(csvContent);
-                link.download = `${agentName.replace(/\s+/g, '_')}_Detailed_Report.csv`;
+                link.download = `${agentName.replace(/\s+/g, '_')}_Versant_Report.csv`;
                 document.body.appendChild(link);
                 link.click();
             };
@@ -319,15 +285,10 @@
                     const isMatched = spokenWordsList.includes(cleanToken);
 
                     let classes = "transition-all duration-300 ";
-                    if (isMatched) {
-                        classes += "text-emerald-700 font-bold bg-emerald-50 rounded px-1";
-                    } else if (!isRecording && hasRecordedCurrent) {
-                        classes += "text-rose-600 font-bold underline decoration-rose-400 underline-offset-4 bg-rose-50 rounded px-1";
-                    } else if (isRecording) {
-                        classes += "text-slate-400";
-                    } else {
-                        classes += "text-slate-800";
-                    }
+                    if (isMatched) classes += "text-emerald-700 font-bold bg-emerald-50 rounded px-1";
+                    else if (!isRecording && hasRecordedCurrent) classes += "text-rose-600 font-bold underline decoration-rose-400 underline-offset-4 bg-rose-50 rounded px-1";
+                    else if (isRecording) classes += "text-slate-400";
+                    else classes += "text-slate-800";
 
                     return <span key={idx} className={classes}>{token}</span>;
                 });
@@ -347,7 +308,6 @@
 
             return (
                 <div className="max-w-4xl mx-auto">
-                    {/* Top Bar */}
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 mb-6 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/25">V</div>
@@ -364,7 +324,6 @@
                         )}
                     </div>
 
-                    {/* Step 0 */}
                     {step === 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 sm:p-10">
                             <h2 className="text-2xl font-bold text-slate-900 mb-2">Candidate Verification</h2>
@@ -372,18 +331,17 @@
                             <div className="space-y-4 max-w-md mb-8">
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Candidate Full Name *</label>
-                                    <input type="text" value={agentName} onChange={(e) => setAgentName(e.target.value)} placeholder="e.g. Priyanshu Verma" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition font-medium"/>
+                                    <input type="text" value={agentName} onChange={(e) => setAgentName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition font-medium"/>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">Agent ID (Optional)</label>
-                                    <input type="text" value={agentId} onChange={(e) => setAgentId(e.target.value)} placeholder="e.g. AGT-209" className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition font-medium"/>
+                                    <input type="text" value={agentId} onChange={(e) => setAgentId(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition font-medium"/>
                                 </div>
                             </div>
                             <button onClick={handleStartTest} className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-lg shadow-indigo-600/25">Start Assessment →</button>
                         </div>
                     )}
 
-                    {/* Step 1 */}
                     {step === 1 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
                             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
@@ -393,11 +351,9 @@
                                 </div>
                                 <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Candidate: {agentName}</span>
                             </div>
-
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-lg leading-relaxed whitespace-pre-line mb-6 font-medium">
                                 {renderHighlightedPassage()}
                             </div>
-
                             <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
                                 {!isRecording && !hasRecordedCurrent && (
                                     <button onClick={startRecording} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-md flex items-center gap-2">🎙️ Start Reading</button>
@@ -406,19 +362,19 @@
                                     <button onClick={stopRecording} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md flex items-center gap-2">■ Stop Reading</button>
                                 )}
                                 {!isRecording && hasRecordedCurrent && (
-                                    <button onClick={() => { setStep(2); setHasRecordedCurrent(false); }} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">Proceed to Logic Test →</button>
+                                    <button onClick={() => setStep(2)} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">Proceed to Logic Test →</button>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {/* Step 2 */}
+                    {/* Step 2: Logic MCQ without Audio Recording Requirement */}
                     {step === 2 && assignedQuestions.length > 0 && (
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
                             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
                                 <div>
                                     <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider">Part 2 of 2</span>
-                                    <h2 className="text-2xl font-bold text-slate-900 mt-1">Logic MCQ & Audio Test</h2>
+                                    <h2 className="text-2xl font-bold text-slate-900 mt-1">Logic MCQ Test</h2>
                                 </div>
                                 <span className="text-sm font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-lg">Question {currentQIndex + 1} / 5</span>
                             </div>
@@ -434,32 +390,32 @@
                                     ))}
                                 </div>
                             </div>
-
                             <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-xl text-sm text-indigo-900 font-medium mb-6">
-                                📌 <strong>Rule:</strong> Pehle correct option select karein, fir Record button dabakar apna answer mic par bolen.
+                                📌 <strong>Rule:</strong> Sahi option select karein aur Next par click karein. Is section ke liye mic ki zarurat nahi hai.
                             </div>
-
                             <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
-                                {!isRecording && !hasRecordedCurrent && (
-                                    <button onClick={startRecording} disabled={selectedOptions[currentQIndex] === null} className={`px-6 py-3 font-bold rounded-xl transition shadow-md ${selectedOptions[currentQIndex] === null ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>🎙️ Record Answer</button>
-                                )}
-                                {isRecording && (
-                                    <button onClick={stopRecording} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition shadow-md">■ Stop Recording</button>
-                                )}
-                                {!isRecording && hasRecordedCurrent && currentQIndex < 4 && (
-                                    <button onClick={() => { setCurrentQIndex(prev => prev + 1); setHasRecordedCurrent(false); }} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">Next Question →</button>
-                                )}
-                                {!isRecording && hasRecordedCurrent && currentQIndex === 4 && (
-                                    <button onClick={calculateEvaluation} className="px-8 py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl transition shadow-md">{isEvaluating ? "Analyzing Performance..." : "Submit & Generate Report"}</button>
+                                {currentQIndex < 4 ? (
+                                    <button 
+                                        onClick={() => setCurrentQIndex(prev => prev + 1)} 
+                                        disabled={selectedOptions[currentQIndex] === null} 
+                                        className={`px-6 py-3 font-bold rounded-xl transition shadow-md ${selectedOptions[currentQIndex] === null ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
+                                        Next Question →
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={calculateEvaluation} 
+                                        disabled={selectedOptions[currentQIndex] === null} 
+                                        className={`px-8 py-3 font-bold rounded-xl transition shadow-md ${selectedOptions[currentQIndex] === null ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-black text-white'}`}>
+                                        {isEvaluating ? "Analyzing Performance..." : "Submit & Generate Report"}
+                                    </button>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {/* Step 3: Beautiful Dashboard with AOI, Failed Reasons & Audio Playback Audit */}
                     {step === 3 && result && (
                         <div className="space-y-6">
-                            {/* Summary Card */}
+                            {/* Summary Card with AI Versant Grade Highlighted */}
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                                 <div className={`px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${result.isPassed ? "bg-emerald-600" : "bg-rose-600"} text-white`}>
                                     <div>
@@ -468,9 +424,14 @@
                                     </div>
                                     <div className="text-left sm:text-right">
                                         <div className="text-4xl font-black">{result.overallScore}<span className="text-xl opacity-80">/100</span></div>
-                                        <span className="inline-block mt-2 px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                                            {result.isPassed ? "✓ ASSESSMENT PASSED" : "✕ ASSESSMENT FAILED"}
-                                        </span>
+                                        <div className="flex gap-2 mt-2 justify-start sm:justify-end flex-wrap">
+                                            <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                {result.isPassed ? "✓ ASSESSMENT PASSED" : "✕ ASSESSMENT FAILED"}
+                                            </span>
+                                            <span className="px-3 py-1 bg-amber-400 text-amber-900 rounded-full text-xs font-black uppercase tracking-wider shadow-sm">
+                                                Versant Grade: {result.versantBadge}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -484,30 +445,30 @@
                                     </div>
 
                                     <div>
-                                        <h3 className="text-lg font-bold text-slate-900 mb-4">Areas of Improvement (AOI) & Verdict</h3>
+                                        <div className="mb-5 p-4 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between">
+                                            <div>
+                                                <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">AI Evaluated Versant Level</h4>
+                                                <p className="text-xl font-bold text-indigo-900">{result.level}</p>
+                                            </div>
+                                            <div className="w-14 h-14 bg-indigo-600 text-white rounded-full flex items-center justify-center text-2xl font-black shadow-lg">
+                                                {result.versantBadge}
+                                            </div>
+                                        </div>
+
+                                        <h3 className="text-lg font-bold text-slate-900 mb-3">Areas of Improvement (AOI)</h3>
                                         <ul className="list-disc pl-5 text-sm font-medium text-slate-700 space-y-2 mb-6">
                                             {result.aoiList.map((aoi, i) => (
                                                 <li key={i}>{aoi}</li>
                                             ))}
                                         </ul>
 
-                                        {result.isPassed ? (
-                                            <div className="p-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-medium">
-                                                ✅ <strong>Candidate Qualified:</strong> Agent ne pronunciation, reading speed aur logic questions ke sabhi benchmarks clear kar liye hain.
-                                            </div>
-                                        ) : (
-                                            <div className="p-5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm font-medium">
-                                                ⚠️ <strong>Candidate Disqualified:</strong> Minimum passing requirements match nahi huye. Niche diye gaye <strong>"Mistake Audit"</strong> section me check karein ki galti kahan hui thi.
-                                            </div>
-                                        )}
-                                        <button onClick={downloadCSV} className="w-full mt-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition text-sm flex items-center justify-center gap-2 shadow">
-                                            📥 Download Official Evaluation Report (CSV)
+                                        <button onClick={downloadCSV} className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition text-sm flex items-center justify-center gap-2 shadow">
+                                            📥 Download Official Report (CSV)
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* EXACT MISTAKE AUDIT CARD (Kaha Galti Hui Thi) */}
                             {!result.isPassed && (
                                 <div className="bg-white border-2 border-rose-200 rounded-2xl shadow-sm p-6 sm:p-8">
                                     <div className="flex items-center gap-2 mb-4 pb-3 border-b border-rose-100">
@@ -517,7 +478,6 @@
                                             <p className="text-xs text-slate-500">Fail hone ke mukhya kaaran aur candidate ki galtiyan:</p>
                                         </div>
                                     </div>
-
                                     <div className="space-y-3 mb-6">
                                         {result.detailedMistakes.map((item, idx) => (
                                             <div key={idx} className="p-4 rounded-xl bg-rose-50/70 border border-rose-200">
@@ -526,7 +486,6 @@
                                             </div>
                                         ))}
                                     </div>
-
                                     {result.missedWordsList && result.missedWordsList.length > 0 && (
                                         <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
                                             <p className="text-xs font-bold uppercase text-slate-600 mb-2">Reading Passage me Miss / Mispronounced Words ({result.missedWordsList.length}):</p>
@@ -537,7 +496,6 @@
                                             </div>
                                         </div>
                                     )}
-
                                     {result.failedQuestionsList && result.failedQuestionsList.length > 0 && (
                                         <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
                                             <p className="text-xs font-bold uppercase text-slate-600 mb-3">Galat Options Select Kiye Gaye Questions ({result.failedQuestionsList.length}):</p>
@@ -557,14 +515,14 @@
                                 </div>
                             )}
 
-                            {/* Full Audio Playback Audit (Restored Original Section) */}
+                            {/* Restructured Audit Section */}
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
-                                <h3 className="text-lg font-bold text-slate-900 mb-6 pb-3 border-b border-slate-100">Live Recording & Audio Playback</h3>
+                                <h3 className="text-lg font-bold text-slate-900 mb-6 pb-3 border-b border-slate-100">Test Breakdown Audit</h3>
                                 
                                 <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
                                         <div>
-                                            <p className="text-sm font-bold text-indigo-700">Part 1: Reading Recording Audit</p>
+                                            <p className="text-sm font-bold text-indigo-700">Part 1: Reading Recording Audio</p>
                                             <p className="text-xs text-slate-500">Passage Accuracy: {result.readingAccuracy}%</p>
                                         </div>
                                         {readingAudioURL && <audio controls src={readingAudioURL} className="h-8 w-full sm:w-64" />}
@@ -573,9 +531,9 @@
                                         {renderHighlightedPassage()}
                                     </div>
                                 </div>
-
+                                
                                 <div className="space-y-4">
-                                    <p className="text-sm font-bold text-indigo-700">Part 2: 5 Logic Questions Audio Breakdown</p>
+                                    <p className="text-sm font-bold text-indigo-700">Part 2: 5 Logic Questions Breakdown</p>
                                     {result.breakdown.map((item, idx) => (
                                         <div key={idx} className="p-4 bg-white border border-slate-200 rounded-xl">
                                             <div className="flex justify-between items-center mb-2">
@@ -584,13 +542,9 @@
                                                     {item.isCorrect ? "Correct" : "Incorrect"}
                                                 </span>
                                             </div>
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs mt-3 bg-slate-50 p-3 rounded-lg">
-                                                <div>
-                                                    <p><span className="text-slate-500 font-bold">Selected Option:</span> <span className="italic font-medium text-slate-800">"{item.candidateAnswer}"</span></p>
-                                                    <p className="mt-1"><span className="text-slate-500 font-bold">Spoken Transcript:</span> <span className="italic font-medium text-slate-700">"{item.transcript}"</span></p>
-                                                    <p className="mt-1"><span className="text-slate-500 font-bold">Expected:</span> <span className="font-semibold text-slate-800">{item.expected}</span></p>
-                                                </div>
-                                                {item.audio && <audio controls src={item.audio} className="h-8 w-full sm:w-52" />}
+                                            <div className="text-xs mt-3 bg-slate-50 p-3 rounded-lg">
+                                                <p><span className="text-slate-500 font-bold">Selected Option:</span> <span className="italic font-medium text-slate-800">"{item.candidateAnswer}"</span></p>
+                                                <p className="mt-1"><span className="text-slate-500 font-bold">Expected:</span> <span className="font-semibold text-slate-800">{item.expected}</span></p>
                                             </div>
                                         </div>
                                     ))}
