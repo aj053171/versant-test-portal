@@ -31,19 +31,19 @@
         // UPDATED: 5-Line Reading Passages (Call Center, Inbound, Job, CSAT)
         const READING_PASSAGES = [
             "Welcome to our inbound call center where customer satisfaction is our top priority.\nWe handle hundreds of queries daily ranging from technical support to billing inquiries.\nAs a customer service representative, active listening and empathy are your best tools.\nAlways ensure that you verify the caller's account details before proceeding with any changes.\nBy resolving issues on the first call, we maintain a high CSAT score and build lasting brand loyalty.",
-            
-            "Working in a dynamic BPO environment requires adaptability and excellent communication skills.\nYour primary job is to guide customers through troubleshooting steps with patience and clarity.\nRemember to document every interaction accurately in our ticketing system for future reference.\nHandling irate customers can be challenging, but maintaining a calm tone de-escalates the situation.\nOur goal is to provide a seamless customer experience that leaves a positive impression of our company.",
-            
-            "Achieving top-tier CSAT metrics depends heavily on the quality of our inbound customer interactions.\nAgents must possess strong product knowledge to answer questions confidently and swiftly.\nDuring busy hours, effective time management ensures that hold times remain within acceptable limits.\nIf a problem requires escalation, smoothly transfer the customer to the specialized technical team.\nEvery successful resolution contributes to the overall success and growth of our service operations."
+            "Every successful resolution contributes to the overall success and growth of our service operations."
         ];
 
-        // NEW: 1-Line Sentences for AI Repeat Test
+        // NEW: 1-Line & 2-Line Sentences for AI Repeat Test (Expanded for randomness)
         const REPEAT_SENTENCES = [
-            "Thank you for calling One Assist customer support, my name is Alex, how can I assist you with your membership today?",
-            "I completely understand your frustration regarding the device protection claim and I will help you get it sorted out immediately.",
-            "Could you please confirm your registered email address and phone number so I can pull up your account details securely?",
-            "We appreciate your patience while I check the status of your recent repair request with our authorized service center.",
-            "As a valued member, you are eligible for an upgrade on your current plan which includes extended warranty benefits."
+            "Thank you for calling One Assist customer support. My name is Alex, how can I assist you with your membership today?",
+            "I completely understand your frustration regarding the device protection claim. I will help you get it sorted out immediately.",
+            "Could you please confirm your registered email address and phone number? This will help me pull up your account details securely.",
+            "We appreciate your patience while I check the status of your recent repair request. Our authorized service center should update it soon.",
+            "As a valued member, you are eligible for an upgrade on your current plan. This upgrade includes extended warranty benefits and free screen replacement.",
+            "Please ensure your device is backed up before you hand it over to the technician. We are not responsible for any data loss during the repair.",
+            "Your feedback is very important to us. Could you please stay on the line for a brief two-minute survey after our call?",
+            "I am sorry for the inconvenience caused by the delayed pickup. Let me reschedule it for a time that is more convenient for you."
         ];
 
         // NEW: 3-Line Typing Passages
@@ -325,6 +325,9 @@
                         });
                         const typeAccuracy = typedWords.length > 0 ? Math.round((typeMatches / typedWords.length) * 100) : 0;
 
+                        // Individual Pass/Fail Logic for Test 2 & 3
+                        const isRepeatPass = repeatAccuracy >= 70; // 70% accuracy required to pass
+                        const isTypingPass = rawTypingWpm >= 25 && typeAccuracy >= 80; // 25 WPM and 80% accuracy required to pass
 
                         // --- Classification ---
                         let level = "", cefr = "", eligibility = "", versantBadge = "";
@@ -388,7 +391,7 @@
                         setResult({
                             finalPassedStatus, isVoicePassed, isNonVoice, versantScore, level, versantBadge, cefr, eligibility,
                             sm: smScore, voc: vocScore, flu: fluScore, pro: proScore, wpm: Math.round(wpm),
-                            repeatAccuracy, typeWpm: rawTypingWpm, typeAccuracy,
+                            repeatAccuracy, isRepeatPass, typeWpm: rawTypingWpm, typeAccuracy, isTypingPass,
                             correctCount, missedWordsList, failedQuestionsList,
                             detailedMistakes, breakdown, aoiList,
                             timestamp: new Date().toLocaleString()
@@ -672,12 +675,18 @@
 
                                         {/* Prominent Display for Test 2 and Test 3 */}
                                         <div className="grid grid-cols-2 gap-4 mt-5">
-                                            <div className="bg-fuchsia-50 border border-fuchsia-200 p-4 rounded-xl shadow-sm">
+                                            <div className={`bg-fuchsia-50 border ${result.isRepeatPass ? 'border-emerald-300' : 'border-rose-300'} p-4 rounded-xl shadow-sm relative`}>
+                                                <span className={`absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${result.isRepeatPass ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                    {result.isRepeatPass ? 'PASS' : 'FAIL'}
+                                                </span>
                                                 <h4 className="text-xs font-bold text-fuchsia-800 uppercase tracking-wider mb-1">Test 2: Repeat Test</h4>
                                                 <p className="text-3xl font-black text-fuchsia-600">{result.repeatAccuracy}%</p>
                                                 <p className="text-xs font-medium text-fuchsia-700 mt-1">Pronunciation Match</p>
                                             </div>
-                                            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-sm">
+                                            <div className={`bg-blue-50 border ${result.isTypingPass ? 'border-emerald-300' : 'border-rose-300'} p-4 rounded-xl shadow-sm relative`}>
+                                                <span className={`absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${result.isTypingPass ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                    {result.isTypingPass ? 'PASS' : 'FAIL'}
+                                                </span>
                                                 <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">Test 3: Typing Test</h4>
                                                 <p className="text-3xl font-black text-blue-600">{result.typeWpm} <span className="text-lg">WPM</span></p>
                                                 <p className="text-xs font-medium text-blue-700 mt-1">Accuracy: {result.typeAccuracy}%</p>
